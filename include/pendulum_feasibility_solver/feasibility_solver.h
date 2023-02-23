@@ -13,11 +13,12 @@ class feasibility_solver
         feasibility_solver() = default;
         ~feasibility_solver(){};
 
-        void configure(const double eta,const double delta ,const Eigen::Vector2d & t_ss_range, const Eigen::Vector2d & t_s_range , const Eigen::Vector2d & stepCstrSize, 
+        void configure(const double eta,const double delta , const Eigen::Vector2d & t_ds_range ,const Eigen::Vector2d & t_ss_range, const Eigen::Vector2d & t_s_range , const Eigen::Vector2d & stepCstrSize, 
                       const Eigen::Vector2d & zmpRange, const double feetDistance, const int N_ds)
         {
             delta_ = delta;
             eta_ = eta;
+            t_ds_range_ = t_ds_range;
             t_ss_range_ = t_ss_range;
             t_s_range_ = t_s_range;
             stepCstrSize_ = stepCstrSize;
@@ -42,13 +43,18 @@ class feasibility_solver
                    double tds_ref , std::vector<sva::PTransformd> & steps_ref,
                    std::vector<double> & timings_refs);
         
-        bool solve_timings();
+        bool solve_timings(const std::vector<sva::PTransformd> & refSteps,const std::vector<double> & refTimings, const double & refTds);
 
-        bool solve_steps();
+        bool solve_steps(const std::vector<sva::PTransformd> & refSteps, const std::vector<double> & refTimings, const std::vector<double> & refDoubleSupportDuration);
 
         const std::vector<sva::PTransformd> & get_optimal_footsteps()
         {
             return optimalSteps_;
+        }
+
+        const std::vector<Eigen::Vector3d> & get_feasibility_region()
+        {
+            return feasibilityRegion_;
         }
 
         const std::vector<double> & get_optimal_steps_timings()
@@ -58,14 +64,14 @@ class feasibility_solver
 
         const std::vector<double> & get_optimal_steps_ds_duration()
         {
-            return optimalDoubleSupportTimings_;
+            return optimalDoubleSupportDuration_;
         }
     
     private:
 
-        void timings_constraints(Eigen::MatrixXd & A_out, Eigen::VectorXd & b_out);
+        void timings_constraints(Eigen::MatrixXd & A_out, Eigen::VectorXd & b_out, const int NStepsTimings);
 
-        void kinematics_contraints(Eigen::MatrixXd & A_out, Eigen::VectorXd & b_out);
+        void kinematics_contraints(Eigen::MatrixXd & A_out, Eigen::VectorXd & b_out, const std::vector<sva::PTransformd> & refSteps);
 
         /**
          * @brief Compute quadrtic cstr such as
@@ -80,10 +86,15 @@ class feasibility_solver
         void feasibility_constraint(Eigen::MatrixXd & Q_out, Eigen::VectorXd & c_out, double & r_out,int k);
 
         void update_x();
+    
+        int N_tdsLast;
+        int N_steps;
+        int N_timings;
         
         double delta_ = 5e-3;
         double eta_ = 3.4;
         double feetDistance_ = 0.2;
+        Eigen::Vector2d t_ds_range_ = Eigen::Vector2d::Zero(); //min_max
         Eigen::Vector2d t_ss_range_ = Eigen::Vector2d::Zero(); //min_max
         Eigen::Vector2d t_s_range_ = Eigen::Vector2d::Zero(); //min_max
         Eigen::Vector2d stepCstrSize_ = Eigen::Vector2d::Zero(); //size of the kinematics cstr rectangle
@@ -102,6 +113,7 @@ class feasibility_solver
         double t_ = 0;
         double tLift_ = 0; //time when contact has been released
         Eigen::Matrix<double,4,2> N_;
+        Eigen::Matrix<double,4,1> offsetCstrZMP_; 
         Eigen::Vector2d dcm_;
         Eigen::Vector2d zmp_;
         std::string supportFoot_;
@@ -109,13 +121,15 @@ class feasibility_solver
 
         std::vector<sva::PTransformd> refSteps_;
         std::vector<double> refTimings_;
-        std::vector<double> refDoubleSupportTimings_;
+        std::vector<double> refDoubleSupportDuration_;
+
+        std::vector<Eigen::Vector3d> feasibilityRegion_;
 
         Eigen::VectorXd solution_; 
 
         std::vector<sva::PTransformd> optimalSteps_;
         std::vector<double> optimalStepsTimings_;
-        std::vector<double> optimalDoubleSupportTimings_;
+        std::vector<double> optimalDoubleSupportDuration_;
 
 
 };

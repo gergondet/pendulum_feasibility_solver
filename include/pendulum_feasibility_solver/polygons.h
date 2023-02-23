@@ -246,10 +246,10 @@ private:
     for(Eigen::Index i = 0 ; i < Polygone_Normals.rows() ; i++)
     {
       Eigen::Index end_indx = (i + 1) % static_cast<Eigen::Index>(Polygone_Normals.rows());
-      Eigen::Vector2d ni = Polygone_Normals.block(i,0,1,2).normalized();
-      Eigen::Vector2d nip1 = Polygone_Normals.block(end_indx,0,1,2).normalized();
+      Eigen::RowVector2d ni = Polygone_Normals.block(i,0,1,2).normalized();
+      Eigen::RowVector2d nip1 = Polygone_Normals.block(end_indx,0,1,2).normalized();
       // mc_rtc::log::info("normal {}\n{}\nnext_normal{}\ndot prod {}",i,ni,nip1,ni.transpose() * nip1);
-      if( std::abs( ni.transpose() * nip1 - 1) > 1e-4  )
+      if( std::abs( ni * nip1.transpose() - 1) > 1e-4  )
       {
 
         vertices_indx.push_back(i);
@@ -281,7 +281,7 @@ private:
     }
   }
 
-  Eigen::Vector3d vertical_vec = Eigen::Vector3d{0, 0, 1};
+  Eigen::Vector3d vertical_vec = Eigen::Vector3d{0., 0., 1.};
   std::vector<Rectangle> _Rectangles;
   std::vector<Eigen::Vector3d> _corners;
   std::vector<Eigen::Vector3d> Polygone_Corners;
