@@ -82,11 +82,6 @@ void feasibility_solver::feasibility_constraint(Eigen::MatrixXd & Q_out, Eigen::
     //Variables are organised as such  : timings then footsteps
     //footstep i indx : N_timings + 2 * i 
 
-    
-    //cst part of the offsets
-    Eigen::Matrix<double,4,1> offset_cstr_zmp; 
-    offset_cstr_zmp << zmpRange_.x()/2,  zmpRange_.x()/2, zmpRange_.y()/2,  zmpRange_.y()/2;
-
     //DCM must remain inside the feasibility region
 
     //We generate the cost function for each vertice of the rectangle
@@ -97,11 +92,12 @@ void feasibility_solver::feasibility_constraint(Eigen::MatrixXd & Q_out, Eigen::
     
     //i = 0 
     const int j_start = doubleSupport_ ? 0 : N_ds_;    
-    for (int j = j_start ; j <= N_ds_ ; j++)
+    for (int j = 0 ; j <= N_ds_ ; j++)
     {
         const double alpha_j = static_cast<double>(j) / static_cast<double>(N_ds_);
         double Ojk = (offsetCstrZMP_(k) + n_k * (alpha_j * P_supportFoot_0 + (1 - alpha_j) * zmp_));
         c_out(j) += Ojk;
+        c_out(j+1) -= Ojk;
     }
 
     //Remainings
@@ -117,30 +113,33 @@ void feasibility_solver::feasibility_constraint(Eigen::MatrixXd & Q_out, Eigen::
 
 
             Q_out.block( mu_indx_j   , step_indx_im1 ,1,2) +=  n_k * alpha_j;
+            c_out(mu_indx_j) += offsetCstrZMP_(k);
             if( !(i == N_steps && j == N_tdsLast - 1))
             {
-                Q_out.block( mu_indx_jp1 , step_indx_im1 ,1,2) +=  -n_k * alpha_j;
-                c_out(mu_indx_jp1) -= offset_cstr_zmp(k);
+                Q_out.block( mu_indx_jp1 , step_indx_im1 ,1,2) -=  n_k * alpha_j;
+                c_out(mu_indx_jp1) -= offsetCstrZMP_(k);
             }
 
-            c_out(mu_indx_j) += offset_cstr_zmp(k);
             
             if( i > 1)
             {
                 Q_out.block( mu_indx_j   , step_indx_im2 ,1,2) +=   n_k * (1 - alpha_j);
-                Q_out.block( mu_indx_jp1 , step_indx_im2 ,1,2) +=  -n_k * (1 - alpha_j);
+                Q_out.block( mu_indx_jp1 , step_indx_im2 ,1,2) -=   n_k * (1 - alpha_j);
             }
             else
             {   
                 const double n_P = n_k * P_supportFoot_0;
                 c_out( mu_indx_j)   +=   n_P * (1 - alpha_j);
-                c_out( mu_indx_jp1) +=  -n_P * (1 - alpha_j);
+                c_out( mu_indx_jp1) -=   n_P * (1 - alpha_j);
             }
             
         }
   
         
     }
+    Eigen::MatrixXd Q_outT = Q_out.transpose();
+    Q_out += Q_outT;
+
 
   
     
@@ -151,18 +150,31 @@ void feasibility_solver::update_x()
     const int N_variables = 2 * N_steps + N_timings * (N_ds_ + 1) + N_tdsLast;
     x_ = Eigen::VectorXd::Zero(N_variables);
     
-    double t_i = 0;
+    
     double tds_i = optimalDoubleSupportDuration_[0];
-    for (size_t i = 0 ; i <= static_cast<size_t>(N_timings) ; i++)
+    for(size_t j =  0  ; j <=  static_cast<size_t>(N_ds_) ; j++)
+    {        
+        const double alpha_j = static_cast<double>(j) / static_cast<double>(N_ds_);
+        double t_ij = t_ + (tds_i - t_) * alpha_j;
+        if(!doubleSupport_)
+        {
+            t_ij = t_;
+        }
+
+        x_( j ) = exp(-eta_ * t_ij);
+    }
+    
+    for (size_t i = 1 ; i <= static_cast<size_t>(N_timings) ; i++)
     {
+        double t_i = optimalStepsTimings_[i - 1];
         tds_i = i < static_cast<size_t>(N_timings) ? optimalDoubleSupportDuration_[i] : tds_i;
         for(size_t j = 0 ; j <= (i != static_cast<size_t>(N_timings) ? static_cast<size_t>(N_ds_) : static_cast<size_t>(N_tdsLast - 1)) ; j++)
         {
             const double alpha_j = static_cast<double>(j) / static_cast<double>(N_ds_);
-            const double t_ij = t_i + tds_i * alpha_j;
+            double t_ij = t_i + tds_i * alpha_j;
             x_( (N_ds_ + 1) * i + j ) = exp(-eta_ * t_ij);
         }
-        t_i = i < static_cast<size_t>(N_timings) ? optimalStepsTimings_[i] : t_i;
+       
         
     }
     for (size_t i = 0 ; i < static_cast<size_t>(N_steps); i++)

@@ -89,6 +89,7 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     //We generate the cstr for each vertice of the rectangle
     
     double tds = refDoubleSupportDuration[0];
+    const Eigen::Vector2d p_init = P_supportFoot_0 * t_/tds + P_swingFoot_0 * (1 - t_/tds );
 
     //i = 0 
     if(doubleSupport_)
@@ -164,12 +165,12 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     Eigen::MatrixXd Aineq_slack = Eigen::MatrixXd::Zero(2 * N_.rows(),N_variables);
     Aineq_slack.block(0,2 * N_steps,N_slack,N_slack) = Eigen::MatrixXd::Identity(N_slack,N_slack);
     Aineq_slack.block(N_slack,2 * N_steps,N_slack,N_slack) = -Eigen::MatrixXd::Identity(N_slack,N_slack);
-    Eigen::VectorXd bineq_slack = Eigen::VectorXd::Ones(Aineq_slack.rows()) * 0.05;
+    Eigen::VectorXd bineq_slack = Eigen::VectorXd::Ones(Aineq_slack.rows()) * 0.3;
 
     Eigen::MatrixXd A_ineq = Eigen::MatrixXd::Zero(A_kin.rows() + A_f.rows() + Aineq_slack.rows() , N_variables);
     Eigen::VectorXd b_ineq = Eigen::VectorXd::Zero(A_ineq.rows());
-    A_ineq <<           - A_f *  exp(eta_ * t_)        , A_kin , Aineq_slack*0;
-    b_ineq <<    (b_f * exp(eta_ * t_) - (N_ * dcm_) ) , b_kin , bineq_slack*0;
+    A_ineq <<           - A_f *  exp(eta_ * t_)        , A_kin , Aineq_slack;
+    b_ineq <<    (b_f * exp(eta_ * t_) - (N_ * dcm_) ) , b_kin , bineq_slack;
 
     //Slack Variables
     A_ineq.block(0,2 * N_steps , N_slack , N_slack ) = Eigen::Matrix4d::Identity();
@@ -191,7 +192,7 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     }
     
     Eigen::MatrixXd M_slack = Eigen::MatrixXd::Zero(N_slack,N_variables);
-    M_slack.block(0,2 * N_steps,N_slack,N_slack) = 1e1 * Eigen::MatrixXd::Identity(N_slack,N_slack);
+    M_slack.block(0,2 * N_steps,N_slack,N_slack) = 5e1 * Eigen::MatrixXd::Identity(N_slack,N_slack);
     Eigen::VectorXd b_slack = Eigen::VectorXd::Zero(M_slack.rows());
 
     //Keeping slack only on broken cstr

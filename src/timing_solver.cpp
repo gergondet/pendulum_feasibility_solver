@@ -33,14 +33,17 @@ void feasibility_solver::timings_constraints(Eigen::MatrixXd & A_out, Eigen::Vec
 
         for (int j = 0 ; j <= N_ds_ ; j++)
         {
-
+            //mu_i <= mu_i-1
             A_min.block( j , (N_ds_ + 1 ) * i + j,1,2) = Eigen::RowVector2d{-1 , 1};
         }
         
+        //Step time cstr
         A_min(N_ds_ + 1, (i+1) * (N_ds_ + 1) ) = 1;
 
+        //Ts <= ts_max
         A_max(0, (i+1) * (N_ds_ + 1)) = -1;
 
+        //Ts - Tds <= tss_max
         A_max(1, (i+1) * (N_ds_ + 1)) = -1;
         A_max(1,  (N_ds_ + 1) * i + N_ds_ ) = mu_ss_max;
 
@@ -49,7 +52,10 @@ void feasibility_solver::timings_constraints(Eigen::MatrixXd & A_out, Eigen::Vec
 
         if(i != 0)
         {
+            //Step time cstr
             A_min(N_ds_ + 1,     i * (N_ds_ + 1) ) = -mu_s_min;
+            
+            //Sg supp time cstr
             A_min(N_ds_ , (N_ds_ + 1) * i + N_ds_) *= mu_ss_min;
             
             A_max(0, i * (N_ds_ + 1) ) = mu_s_max;
@@ -63,22 +69,31 @@ void feasibility_solver::timings_constraints(Eigen::MatrixXd & A_out, Eigen::Vec
         {
             if(!doubleSupport_)
             {
-                A_min(N_ds_ ,  N_ds_) = 0;
-                b_min(N_ds_) = mu_ss_min * exp(-eta_ * (-tLift_));
-                A_min(N_ds_ + 3 , N_ds_ + 1) = 1;
-                b_min(N_ds_ + 3) = exp(-eta_ * ( t_ + 0.1 ));
+                //Sg supp time cstr
+                //t_step >= t_ds + min_ss
+                A_min(N_ds_ ,  N_ds_) *= 0;
+                b_min(N_ds_) = mu_ss_min * exp(-eta_ * tLift_);
+
+                // //Tstep >= t_ + > 0.1 
+                // A_min(N_ds_ + 3 , N_ds_ + 1) = 1;
+                // b_min(N_ds_ + 3) = exp(-eta_ * ( t_ + 0.1 ));
 
             }
             else
             {
+                //Tds <= tds_max
                 A_max(2,  (N_ds_ + 1) * i + N_ds_ ) = -1;
                 b_max(2) = -mu_ds_max;
             }
-           
+
+            //t_step_0 >= t_s_min
             b_min(N_ds_ + 1) = mu_s_min;
+
+            //mu_0 >=  t_
             A_min(N_ds_ + 2 , 0) = 1;
             b_min(N_ds_ + 2) = exp(-eta_ * t_);
             
+            //Ts <= ts_max
             b_max(0) = -mu_s_max;
             
         }
@@ -121,8 +136,12 @@ bool feasibility_solver::solve_timings(const std::vector<sva::PTransformd> & ref
     const int N_slack = static_cast<int>(N_.rows());
     const int N_variables =  NStepsTimings * (N_ds_ + 1) + N_tdsLast + N_slack;
 
+    
+
     const Eigen::Vector2d & P_supportFoot_0 = X_0_SupportFoot_.translation().segment(0,2);
     const Eigen::Vector2d & P_swingFoot_0 = X_0_SwingFoot_.translation().segment(0,2);
+
+    const Eigen::Vector2d p_init = P_supportFoot_0 * t_/refTds_ + P_swingFoot_0 * (1 - t_/refTds_ );
 
 
     //Variables are organised as such  : timings then slack variables
@@ -136,12 +155,16 @@ bool feasibility_solver::solve_timings(const std::vector<sva::PTransformd> & ref
     //A_f * x + b >= N * P_u
     
     //i = 0 
-    const int j_start = doubleSupport_ ? 0 : N_ds_; 
-    for (int j = j_start ; j <= N_ds_ ; j++)
+    // const int j_start = doubleSupport_ ? 0 : N_ds_; 
+    for (int j = 0 ; j <= N_ds_ ; j++)
     {
         const double alpha_j = static_cast<double>(j) / static_cast<double>(N_ds_);
         
         Eigen::Vector4d Oij = (offsetCstrZMP_ + N_ * (alpha_j * P_supportFoot_0 + (1 - alpha_j) * zmp_));
+        if(!doubleSupport_)
+        {
+            Oij = offsetCstrZMP_ + N_ * alpha_j * P_supportFoot_0;
+        }
         A_f.block(0, j , 4, 1)     += Oij;
         A_f.block(0, j + 1 , 4, 1) -= Oij;
     }
@@ -185,7 +208,7 @@ bool feasibility_solver::solve_timings(const std::vector<sva::PTransformd> & ref
     Eigen::MatrixXd Aineq_slack = Eigen::MatrixXd::Zero(2 * N_.rows(),N_variables);
     Aineq_slack.block(0,2 * N_steps,N_slack,N_slack) = Eigen::MatrixXd::Identity(N_slack,N_slack);
     Aineq_slack.block(N_slack,2 * N_steps,N_slack,N_slack) = -Eigen::MatrixXd::Identity(N_slack,N_slack);
-    Eigen::VectorXd bineq_slack = Eigen::VectorXd::Ones(Aineq_slack.rows()) * 0.005;
+    Eigen::VectorXd bineq_slack = Eigen::VectorXd::Ones(Aineq_slack.rows()) * 0.3;
 
     Eigen::MatrixXd A_ineq = Eigen::MatrixXd::Zero(A_Tsteps.rows() + A_f.rows() + Aineq_slack.rows(), N_variables);
     Eigen::VectorXd b_ineq = Eigen::VectorXd::Zero(A_ineq.rows());
@@ -205,9 +228,25 @@ bool feasibility_solver::solve_timings(const std::vector<sva::PTransformd> & ref
     Eigen::MatrixXd M_timings = Eigen::MatrixXd::Identity(N_variables,N_variables);
     Eigen::VectorXd b_timings = Eigen::VectorXd::Ones(M_timings.rows());
     
-    double t_im1 = doubleSupport_ ? 0 : refTimings[0] ;
-    for(int i = doubleSupport_ ? 0 : 1; i <= NStepsTimings; i++)
+    double t_im1 =  0;
+    for (int j = 0 ; j <= N_ds_  ; j ++)
     {
+        
+        double alpha_j = static_cast<double>(j)/static_cast<double>(N_ds_);
+        if(doubleSupport_)
+        {
+            b_timings(j) = exp(-eta_ * ( t_ + alpha_j * (refTds - t_)) );
+        }
+        else
+        {
+            b_timings(j) = exp(-eta_ * t_ );
+        }
+
+    }
+
+    for(int i =  1; i <= NStepsTimings; i++)
+    {
+        t_im1 = refTimings[i-1];
         for (int j = 0 ; j <= (i != N_steps ? N_ds_ : N_tdsLast - 1 )  ; j ++)
         {
             
@@ -215,11 +254,11 @@ bool feasibility_solver::solve_timings(const std::vector<sva::PTransformd> & ref
             b_timings( (N_ds_ + 1) * i + j) = exp(-eta_ * ( t_im1 + alpha_j * (refTds)) );
 
         }
-        t_im1 = refTimings[i];
+        
     }
 
     Eigen::MatrixXd M_slack = Eigen::MatrixXd::Zero(N_slack,N_variables);
-    M_slack.block(0,N_variables - N_slack,N_slack,N_slack) = 1e1 * Eigen::MatrixXd::Identity(N_slack,N_slack);
+    M_slack.block(0,N_variables - N_slack,N_slack,N_slack) = 5e1 * Eigen::MatrixXd::Identity(N_slack,N_slack);
     Eigen::VectorXd b_slack = Eigen::VectorXd::Zero(M_slack.rows());
 
     
