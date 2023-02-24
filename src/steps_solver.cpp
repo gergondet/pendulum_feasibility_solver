@@ -169,8 +169,8 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
 
     Eigen::MatrixXd A_ineq = Eigen::MatrixXd::Zero(A_kin.rows() + A_f.rows() + Aineq_slack.rows() , N_variables);
     Eigen::VectorXd b_ineq = Eigen::VectorXd::Zero(A_ineq.rows());
-    A_ineq <<           - A_f *  exp(eta_ * t_)        , A_kin , Aineq_slack;
-    b_ineq <<    (b_f * exp(eta_ * t_) - (N_ * dcm_) ) , b_kin , bineq_slack;
+    A_ineq <<           - A_f *  exp(eta_ * t_)        , A_kin , 0*Aineq_slack;
+    b_ineq <<    (b_f * exp(eta_ * t_) - (N_ * dcm_) ) , b_kin , 0*bineq_slack;
 
     //Slack Variables
     A_ineq.block(0,2 * N_steps , N_slack , N_slack ) = Eigen::Matrix4d::Identity();
@@ -192,7 +192,7 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     }
     
     Eigen::MatrixXd M_slack = Eigen::MatrixXd::Zero(N_slack,N_variables);
-    M_slack.block(0,2 * N_steps,N_slack,N_slack) = 5e1 * Eigen::MatrixXd::Identity(N_slack,N_slack);
+    M_slack.block(0,2 * N_steps,N_slack,N_slack) = 5 * Eigen::MatrixXd::Identity(N_slack,N_slack);
     Eigen::VectorXd b_slack = Eigen::VectorXd::Zero(M_slack.rows());
 
     //Keeping slack only on broken cstr
@@ -208,12 +208,12 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
         {
             std::cout << "[Pendulum feasibility solver][Steps solver] broken cstr on " << i << std::endl;
         }
-        // else
-        // {
-        //     A_ineq.row(i).segment(2 * N_steps,N_slack).setZero();
-        //     A_ineq.row(i).setZero();
-        //     b_ineq(i) = 0;
-        // }
+        else
+        {
+            A_ineq.row(i).segment(2 * N_steps,N_slack).setZero();
+            A_ineq.row(i).setZero();
+            b_ineq(i) = 0;
+        }
     }
     // std::cout << "A_ineq" << std::endl << A_ineq << std::endl;
     // std::cout << "b_ineq" << std::endl << b_ineq << std::endl;

@@ -212,8 +212,8 @@ bool feasibility_solver::solve_timings(const std::vector<sva::PTransformd> & ref
 
     Eigen::MatrixXd A_ineq = Eigen::MatrixXd::Zero(A_Tsteps.rows() + A_f.rows() + Aineq_slack.rows(), N_variables);
     Eigen::VectorXd b_ineq = Eigen::VectorXd::Zero(A_ineq.rows());
-    A_ineq <<       - A_f * exp(eta_ * t_)        , A_Tsteps, Aineq_slack;
-    b_ineq << b_f * exp(eta_ * t_) - (N_ * dcm_ ) , b_Tsteps, bineq_slack;
+    A_ineq <<       - A_f * exp(eta_ * t_)        , A_Tsteps, 0*Aineq_slack;
+    b_ineq << b_f * exp(eta_ * t_) - (N_ * dcm_ ) , b_Tsteps, 0*bineq_slack;
     const int NineqCstr = static_cast<int>(A_ineq.rows()); 
 
     //Slack Variables
@@ -225,7 +225,7 @@ bool feasibility_solver::solve_timings(const std::vector<sva::PTransformd> & ref
     const int NeqCstr = static_cast<int>(A_eq.rows()); 
     
     //Cost function
-    Eigen::MatrixXd M_timings = Eigen::MatrixXd::Identity(N_variables,N_variables);
+    Eigen::MatrixXd M_timings = Eigen::MatrixXd::Identity(N_variables - N_slack,N_variables);
     Eigen::VectorXd b_timings = Eigen::VectorXd::Ones(M_timings.rows());
     
     double t_im1 =  0;
@@ -258,8 +258,28 @@ bool feasibility_solver::solve_timings(const std::vector<sva::PTransformd> & ref
     }
 
     Eigen::MatrixXd M_slack = Eigen::MatrixXd::Zero(N_slack,N_variables);
-    M_slack.block(0,N_variables - N_slack,N_slack,N_slack) = 5e1 * Eigen::MatrixXd::Identity(N_slack,N_slack);
+    M_slack.block(0,N_variables - N_slack,N_slack,N_slack) = 10 * Eigen::MatrixXd::Identity(N_slack,N_slack);
     Eigen::VectorXd b_slack = Eigen::VectorXd::Zero(M_slack.rows());
+
+    //Keeping slack only on broken cstr
+    // Eigen::VectorXd x_init = Eigen::VectorXd::Zero(N_variables);
+    // x_init.segment(0,N_variables - N_slack) = b_timings;
+
+    // Eigen::Vector4d feasibilityOffsetInit = exp(eta_ * t_) * ( A_f * x_init + b_f);
+    // Eigen::Vector4d dcm_pose = N_ * dcm_;
+    
+    // for (int i = 0 ; i < 4 ; i++)
+    // {
+    //     if(feasibilityOffsetInit(i) < dcm_pose(i))
+    //     {
+    //         std::cout << "[Pendulum feasibility solver][Timing   solver] broken cstr on " << i << std::endl;
+    //     }
+    //     else
+    //     {
+    //         A_ineq.row(i).setZero();
+    //         b_ineq(i) = 0;
+    //     }
+    // }
 
     
     Eigen::MatrixXd Q_cost = betaTsteps * M_timings.transpose() * M_timings + ( M_slack.transpose() * M_slack) ;
