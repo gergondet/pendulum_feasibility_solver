@@ -1,6 +1,6 @@
 #include "../include/pendulum_feasibility_solver/feasibility_solver.h"
 #include "../include/pendulum_feasibility_solver/polygons.h"
-#include <ScsEigen/Solver.h>
+// #include <ScsEigen/Solver.h>
 
 
 
@@ -76,8 +76,8 @@ void feasibility_solver::feasibility_constraint(Eigen::MatrixXd & Q_out, Eigen::
     const Eigen::Vector2d & P_supportFoot_0 = X_0_SupportFoot_.translation().segment(0,2);
     const Eigen::Vector2d & P_swingFoot_0 = X_0_SwingFoot_.translation().segment(0,2);
 
-    ScsEigen::Solver solver;
-    solver.mathematicalProgram().setNumberOfVariables(N_variables);
+    // ScsEigen::Solver solver;
+    // solver.mathematicalProgram().setNumberOfVariables(N_variables);
 
     //Variables are organised as such  : timings then footsteps
     //footstep i indx : N_timings + 2 * i 

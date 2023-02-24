@@ -17,7 +17,7 @@ include(cmake/base.cmake)
 
 project(${PROJECT_NAME} LANGUAGES CXX VERSION ${PROJECT_VERSION})
 
-find_package(ScsEigen REQUIRED)
+# find_package(ScsEigen REQUIRED)
 
 add_subdirectory(src)
 
