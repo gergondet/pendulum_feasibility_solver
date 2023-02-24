@@ -1,5 +1,4 @@
 #pragma once
-#include <Eigen/StdVector>
 #include <eigen3/Eigen/Dense>
 #include <iostream>
 #include <SpaceVecAlg/SpaceVecAlg>

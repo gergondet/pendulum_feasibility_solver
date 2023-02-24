@@ -18,6 +18,9 @@ include(cmake/base.cmake)
 project(${PROJECT_NAME} LANGUAGES CXX VERSION ${PROJECT_VERSION})
 
 # find_package(ScsEigen REQUIRED)
+find_package(SpaceVecAlg REQUIRED)
+find_package(eigen-quadprog REQUIRED)
+
 
 add_subdirectory(src)
 

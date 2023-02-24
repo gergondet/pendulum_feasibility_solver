@@ -13,6 +13,7 @@ set(HDR
 add_library(${PROJECT_NAME} SHARED ${SRC} ${HDR})
 
 # target_link_libraries(${PROJECT_NAME} ScsEigen::ScsEigen)
+target_link_libraries(${PROJECT_NAME} PUBLIC SpaceVecAlg::SpaceVecAlg eigen-quadprog::eigen-quadprog)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
   OUTPUT_NAME ${PROJECT_NAME}
