@@ -13,8 +13,8 @@ class feasibility_solver
         feasibility_solver() = default;
         ~feasibility_solver(){};
 
-        void configure(const double eta,const double delta , const Eigen::Vector2d & t_ds_range ,const Eigen::Vector2d & t_ss_range, const Eigen::Vector2d & t_s_range , const Eigen::Vector2d & stepCstrSize, 
-                      const Eigen::Vector2d & zmpRange, const double feetDistance, const int N_ds)
+        void configure(const double eta,const double delta , const Eigen::Vector2d t_ds_range ,const Eigen::Vector2d t_ss_range, const Eigen::Vector2d t_s_range , const Eigen::Vector2d stepCstrSize, 
+                      const Eigen::Vector2d zmpRange, const double feetDistance, const int N_ds)
         {
             delta_ = delta;
             eta_ = eta;

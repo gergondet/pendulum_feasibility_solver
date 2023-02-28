@@ -101,7 +101,8 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
             const double e_alpha_j_Tds = exp(-eta_ * ( alpha_j * (tds - t_) + t_ ) ); 
             const double alpha_jp1 = static_cast<double>(j+1) / static_cast<double>(N_ds_);
             const double e_alpha_jp1_Tds = exp(-eta_ * (alpha_jp1 * (tds - t_) + t_) ); 
-            b_f += (offsetCstrZMP_
+       
+            b_f += (offsetCstrZMP_ 
                     + N_ * (alpha_j * P_supportFoot_0 + (1 - alpha_j) * zmp_)) * 
                     (e_alpha_j_Tds - e_alpha_jp1_Tds);
         }
@@ -122,9 +123,9 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
         const double mu_im1 = exp(-eta_ * refTimings[i - 1]);
         for (int j = 0 ; j < (i != N_steps ? N_ds_ : N_tdsLast )  ; j++)
         {
-            const double alpha_j = static_cast<double>(j) / static_cast<double>(N_ds_);
+            const double alpha_j = static_cast<double>(j+1) / static_cast<double>(N_ds_ + 1);
             const double e_alpha_j_Tds = exp(-eta_ * alpha_j * tds); 
-            const double alpha_jp1 = static_cast<double>(j+1) / static_cast<double>(N_ds_);
+            const double alpha_jp1 = static_cast<double>(j+2) / static_cast<double>(N_ds_+ 1);
             double e_alpha_jp1_Tds = exp(-eta_ * alpha_jp1 * tds); 
             if( i == N_steps && j == N_tdsLast - 1)
             {
@@ -192,7 +193,7 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     }
     
     Eigen::MatrixXd M_slack = Eigen::MatrixXd::Zero(N_slack,N_variables);
-    M_slack.block(0,2 * N_steps,N_slack,N_slack) = 5 * Eigen::MatrixXd::Identity(N_slack,N_slack);
+    M_slack.block(0,2 * N_steps,N_slack,N_slack) = 1e3 * Eigen::MatrixXd::Identity(N_slack,N_slack);
     Eigen::VectorXd b_slack = Eigen::VectorXd::Zero(M_slack.rows());
 
     //Keeping slack only on broken cstr
@@ -241,7 +242,7 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     Polygon feasibilityPolygon = Polygon(N_,feasibilityOffset);
     feasibilityRegion_ = feasibilityPolygon.Get_Polygone_Corners();
 
-    // std::cout << "Slack : " << solution_.segment(2 * N_steps,N_slack) << std::endl;
+    // std::cout << "Slack Steps: " << solution_.segment(2 * N_steps,N_slack) << std::endl;
     
 
     optimalSteps_.clear();

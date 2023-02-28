@@ -4,9 +4,12 @@
 
 
 
-bool feasibility_solver::solve(double t,double t_lift,bool dbl_supp,const Eigen::Vector2d & dcm, const Eigen::Vector2d & zmp , const std::string & supportFoot, const sva::PTransformd & X_0_supportFoot , const sva::PTransformd & X_0_swingFoot,
-                   double tds_ref , std::vector<sva::PTransformd> & steps_ref,
-                   std::vector<double> & timings_refs)
+bool feasibility_solver::solve(double t,double t_lift,
+                    bool dbl_supp,
+                    const Eigen::Vector2d & dcm, const Eigen::Vector2d & zmp , 
+                    const std::string & supportFoot, const sva::PTransformd & X_0_supportFoot , const sva::PTransformd & X_0_swingFoot,
+                    double tds_ref , std::vector<sva::PTransformd> & steps_ref,
+                    std::vector<double> & timings_refs)
 {
 
     assert (steps_ref.size() == timings_refs.size());
@@ -31,14 +34,14 @@ bool feasibility_solver::solve(double t,double t_lift,bool dbl_supp,const Eigen:
     Eigen::VectorXd Tds = Eigen::VectorXd::Ones(refTimings_.size()) * refTds_;
     refDoubleSupportDuration_ = std::vector<double>(Tds.data(), Tds.data() + Tds.rows() );
     optimalDoubleSupportDuration_ = refDoubleSupportDuration_;
-    t_ = t;
-    const Eigen::Matrix2d & R_supportFoot_0 = X_0_SupportFoot_.rotation().transpose().block(0,0,2,2);
+    t_ = std::max(0. , t);
+    const Eigen::Matrix2d R_0_supportFoot = X_0_SupportFoot_.rotation().block(0,0,2,2);
     N_ <<  1.  ,  0.,
            0.  , -1.,
           -1.  ,  0.,
            0.  ,  1.;
           
-    N_*= R_supportFoot_0.transpose();
+    N_*= R_0_supportFoot;
 
     //cst part of the offsets
     offsetCstrZMP_ << zmpRange_.x()/2,  zmpRange_.y()/2, zmpRange_.x()/2,  zmpRange_.y()/2;
