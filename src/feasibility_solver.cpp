@@ -43,13 +43,52 @@ bool feasibility_solver::solve(double t,double t_lift,
           
     N_*= R_0_supportFoot;
 
+    xStep_ = Eigen::VectorXd::Zero(2 * N_steps);
+    xTimings_ = Eigen::VectorXd::Zero(N_timings * (N_ds_ + 1) + N_tdsLast);
+    double t_im1 =  0;
+    for (int j = 0 ; j <= N_ds_  ; j ++)
+    {
+        
+        double alpha_j = static_cast<double>(j)/static_cast<double>(N_ds_);
+        if(doubleSupport_)
+        {
+            xTimings_(j) = exp(-eta_ * ( t_ + alpha_j * (optimalDoubleSupportDuration_[0] - t_)) );
+        }
+        else
+        {
+            xTimings_(j) = exp(-eta_ * t_ );
+        }
+
+    }
+    for(int i = 0 ; i <= N_steps ; i++)
+    {
+        if(i!=N_steps)
+        {
+            xStep_.segment(2*i,2) = optimalSteps_[i].translation().segment(0,2);
+        }
+        if(i != 0)
+        {
+            t_im1 = optimalStepsTimings_[i-1];
+            for (int j = 0 ; j <= (i != N_steps ? N_ds_ : N_tdsLast - 1 )  ; j ++)
+            {
+                
+                double alpha_j = static_cast<double>(j)/static_cast<double>(N_ds_);
+                xTimings_( (N_ds_ + 1) * i + j) = exp(-eta_ * ( t_im1 + alpha_j * (optimalDoubleSupportDuration_[i])) );
+
+            }
+        }
+    }
+
     //cst part of the offsets
     offsetCstrZMP_ << zmpRange_.x()/2,  zmpRange_.y()/2, zmpRange_.x()/2,  zmpRange_.y()/2;
 
     bool ret = true;
-    ret = ret && solve_timings(optimalSteps_,refTimings_,refTds_);
-    ret = ret && solve_steps(refSteps_,optimalStepsTimings_,optimalDoubleSupportDuration_);
-    ret = ret && solve_timings(optimalSteps_,refTimings_,refTds_);
+    Niter_ = 0;
+    ret = ret && solve_timings(refTimings_,refTds_);
+    Niter_ += 1;
+    ret = ret && solve_steps(refSteps_);
+    Niter_ += 1;
+    ret = ret && solve_timings(refTimings_,refTds_);
 
     bool feasible_ = true;
 

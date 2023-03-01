@@ -21,7 +21,7 @@ void feasibility_solver::timings_constraints(Eigen::MatrixXd & A_out, Eigen::Vec
     //All mu must be decreasing in the horizon
     Eigen::MatrixXd A_decrease = Eigen::MatrixXd::Zero(N_mu,NVariables);
     A_decrease.block(0,0,N_mu,N_mu) = Eigen::MatrixXd::Identity(N_mu,N_mu);
-    A_decrease.block(1,0,N_mu - 1,N_mu - 1).diagonal() = -Eigen::VectorXd::Ones(N_mu - 1) * exp(-eta_ * delta_);
+    A_decrease.block(1,0,N_mu - 1,N_mu - 1).diagonal() = -Eigen::VectorXd::Ones(N_mu - 1) ;
     A_vec.push_back(A_decrease.block(1,0,N_mu - 1 , NVariables));
     b_vec.push_back(Eigen::VectorXd::Zero(A_vec.back().rows()));
     N_cstr += static_cast<int>(A_vec.back().rows());
@@ -137,9 +137,8 @@ void feasibility_solver::timings_constraints(Eigen::MatrixXd & A_out, Eigen::Vec
     
 }
 
-bool feasibility_solver::solve_timings(const std::vector<sva::PTransformd> & refSteps,const std::vector<double> & refTimings, const double & refTds)
+bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, const double & refTds)
 {
-    assert (refSteps.size() == refTimings.size());
     const int NStepsTimings = N_steps;
     const int N_slack = static_cast<int>(N_.rows());
     const int N_variables =  NStepsTimings * (N_ds_ + 1) + N_tdsLast + N_slack;
@@ -160,15 +159,15 @@ bool feasibility_solver::solve_timings(const std::vector<sva::PTransformd> & ref
     //DCM must remain inside the feasibility region
     Eigen::MatrixXd A_f = Eigen::MatrixXd::Zero(N_.rows(),N_variables);
     Eigen::VectorXd b_f = Eigen::VectorXd::Zero(A_f.rows());
-    //A_f * x + b >= N * P_u
+    //A_f * x + b + slck >= N * P_u
     
     //i = 0 
     // const int j_start = doubleSupport_ ? 0 : N_ds_; 
     for (int j = 0 ; j <= N_ds_ ; j++)
     {
-        const double alpha_j = static_cast<double>(j) / static_cast<double>(N_ds_);
-    
-        Eigen::Vector4d Oij = (offsetCstrZMP_  + N_ * (alpha_j * P_supportFoot_0 + (1 - alpha_j) * zmp_));
+        double alpha_j = static_cast<double>(j) / static_cast<double>(N_ds_);
+        if(!doubleSupport_){alpha_j = 1;}
+        Eigen::Vector4d Oij = (offsetCstrZMP_  + N_ * (alpha_j * P_supportFoot_0 + (1 - alpha_j) * p_init));
 
         A_f.block(0, j , 4, 1)     += Oij;
         A_f.block(0, j + 1 , 4, 1) -= Oij;
@@ -182,11 +181,11 @@ bool feasibility_solver::solve_timings(const std::vector<sva::PTransformd> & ref
         {
             const double alpha_j = static_cast<double>(j + 1) / static_cast<double>(N_ds_ + 1);
         
-            Eigen::Vector4d O_ij = offsetCstrZMP_ + N_ * (alpha_j * refSteps[i-1].translation().segment(0,2));
+            Eigen::Vector4d O_ij = offsetCstrZMP_ + N_ * (alpha_j * xStep_.segment(2 * (i - 1),2));
             
             if( i > 1)
             {
-                O_ij +=  N_ * ((1 - alpha_j) * refSteps[i-2].translation().segment(0,2));
+                O_ij +=  N_ * ((1 - alpha_j) * xStep_.segment(2 * (i - 2),2));
             }
             else
             {   
@@ -204,7 +203,7 @@ bool feasibility_solver::solve_timings(const std::vector<sva::PTransformd> & ref
 
     }
     //Slack Variables
-    A_f.block(0,N_variables - N_slack , N_slack , N_slack ) = Eigen::Matrix4d::Identity();
+    // A_f.block(0,N_variables - N_slack , N_slack , N_slack ) = Eigen::Matrix4d::Identity();
 
     // std::cout << A_f << std::endl;
     
@@ -259,7 +258,7 @@ bool feasibility_solver::solve_timings(const std::vector<sva::PTransformd> & ref
     }
 
     Eigen::MatrixXd M_slack = Eigen::MatrixXd::Zero(N_slack,N_variables);
-    M_slack.block(0,N_variables - N_slack,N_slack,N_slack) = 1e3 * Eigen::MatrixXd::Identity(N_slack,N_slack);
+    M_slack.block(0,N_variables - N_slack,N_slack,N_slack) = 1e4 * Eigen::MatrixXd::Identity(N_slack,N_slack);
     Eigen::VectorXd b_slack = Eigen::VectorXd::Zero(M_slack.rows());
 
     //Keeping slack only on broken cstr
@@ -268,18 +267,17 @@ bool feasibility_solver::solve_timings(const std::vector<sva::PTransformd> & ref
 
     Eigen::Vector4d feasibilityOffsetInit = exp(eta_ * t_) * ( A_f * x_init + b_f);
     Eigen::Vector4d dcm_pose = N_ * dcm_;
+
+    // std::cout << "[Pendulum feasibility solver][Timing solver] xStep " << std::endl << xStep_ << std::endl;
+    // std::cout << "[Pendulum feasibility solver][Timing solver] init offset " << std::endl << feasibilityOffsetInit << std::endl;
     
     for (int i = 0 ; i < 4 ; i++)
     {
         if(feasibilityOffsetInit(i) < dcm_pose(i))
         {
-            std::cout << "[Pendulum feasibility solver][Timing   solver] broken cstr on " << i << std::endl;
+            std::cout << "[Pendulum feasibility solver][Timing  solver] " << "[iter : " << Niter_ <<"] broken cstr on " << i << std::endl;
+
         }
-    //     else
-    //     {
-    //         A_ineq.row(i).setZero();
-    //         b_ineq(i) = 0;
-    //     }
     }
 
     
@@ -296,21 +294,56 @@ bool feasibility_solver::solve_timings(const std::vector<sva::PTransformd> & ref
 
     if(!QPsuccess)
     {
-        std::cout << "[Pendulum feasibility solver][Timing solver] QP Failed" << std::endl;
-        Eigen::VectorXd Tds = Eigen::VectorXd::Ones(refTimings.size()) * (t_s_range_.x() - t_ss_range_.x());
-        Eigen::VectorXd Ts = Eigen::VectorXd::Ones(refTimings.size()) * (t_s_range_.x());
+        std::cout << "[Pendulum feasibility solver][Timing solver] " << "[iter : " << Niter_ <<"] QP Failed" << std::endl;
+        Eigen::VectorXd Tds = Eigen::VectorXd::Ones(refTimings.size()) * (t_ds_range_.x());
+        Eigen::VectorXd Ts = Eigen::VectorXd::Zero(refTimings.size());
+        for(int i = 0 ; i < Ts.size() ; i++)
+        {
+            Ts(i) = (i+1) * t_s_range_.x();
+        }
+
         optimalDoubleSupportDuration_ = std::vector<double>(Tds.data(), Tds.data() + Tds.rows() );
         optimalStepsTimings_ = std::vector<double>(Ts.data(), Ts.data() + Ts.rows() );
-        return false;
+        xTimings_ = Eigen::VectorXd::Zero(N_timings * (N_ds_ + 1) + N_tdsLast);
+        double t_im1 =  0;
+        for (int j = 0 ; j <= N_ds_  ; j ++)
+        {
+            
+            double alpha_j = static_cast<double>(j)/static_cast<double>(N_ds_);
+            if(doubleSupport_)
+            {
+                xTimings_(j) = exp(-eta_ * ( t_ + alpha_j * (optimalDoubleSupportDuration_[0] - t_)) );
+            }
+            else
+            {
+                xTimings_(j) = exp(-eta_ * t_ );
+            }
+
+        }
+        for(int i = 1 ; i <= N_steps ; i++)
+        {
+            t_im1 = optimalStepsTimings_[i-1];
+            for (int j = 0 ; j <= (i != N_steps ? N_ds_ : N_tdsLast - 1 )  ; j ++)
+            {
+                
+                double alpha_j = static_cast<double>(j)/static_cast<double>(N_ds_);
+                xTimings_( (N_ds_ + 1) * i + j) = exp(-eta_ * ( t_im1 + alpha_j * (optimalDoubleSupportDuration_[i])) );
+
+            }      
+        }
+        // Eigen::Vector4d feasibilityOffset = exp(eta_ * t_) * ( A_f.block(0,0,4,N_variables - N_slack) * xTimings_ + b_f);
+        // std::cout << "[Pendulum feasibility solver][Timing solver] output offset " << std::endl << feasibilityOffset << std::endl;
+
+        return true;
     }
     
-    Eigen::VectorXd solution_ = QP.result();
-    Eigen::Vector4d feasibilityOffset = exp(eta_ * t_) * ( A_f * solution_ + b_f);
+    xTimings_ = QP.result().segment(0,N_variables - N_slack);
+    Eigen::Vector4d feasibilityOffset = exp(eta_ * t_) * ( A_f * QP.result() + b_f);
+    // std::cout << "[Pendulum feasibility solver][Timing solver] output offset " << std::endl << feasibilityOffset << std::endl;
     Polygon feasibilityPolygon = Polygon(N_,feasibilityOffset);
     feasibilityRegion_ = feasibilityPolygon.Get_Polygone_Corners();
 
-
-    // std::cout << "init" << std::endl;
+    // std::cout << "init " << std::endl;
     // for (int i = 0 ; i < N_variables - N_slack ; i++)
     // {
     //     std::cout << -log(b_timings(i))/eta_ << std::endl;
@@ -321,15 +354,15 @@ bool feasibility_solver::solve_timings(const std::vector<sva::PTransformd> & ref
     
     optimalStepsTimings_.clear();
     optimalDoubleSupportDuration_.clear();
-    double tds_i = -log(solution_( N_ds_))/eta_ ;
-    double ts_i = -log(solution_( (N_ds_ + 1)))/eta_;
+    double tds_i = -log(xTimings_( N_ds_))/eta_ ;
+    double ts_i = -log(xTimings_( (N_ds_ + 1)))/eta_;
     optimalStepsTimings_.push_back(ts_i);
     optimalDoubleSupportDuration_.push_back(tds_i);
 
     for (int i = 1 ; i < NStepsTimings ; i++)
     {
-        tds_i = -log(solution_( (N_ds_+1) * i + N_ds_))/eta_  - ts_i;
-        ts_i = -log(solution_( (N_ds_ + 1) * (i+1)))/eta_;
+        tds_i = -log(xTimings_( (N_ds_+1) * i + N_ds_))/eta_  - ts_i;
+        ts_i = -log(xTimings_( (N_ds_ + 1) * (i+1)))/eta_;
 
         
         optimalStepsTimings_.push_back(ts_i);

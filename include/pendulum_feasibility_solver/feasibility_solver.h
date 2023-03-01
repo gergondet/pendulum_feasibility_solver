@@ -43,9 +43,9 @@ class feasibility_solver
                    double tds_ref , std::vector<sva::PTransformd> & steps_ref,
                    std::vector<double> & timings_refs);
         
-        bool solve_timings(const std::vector<sva::PTransformd> & refSteps,const std::vector<double> & refTimings, const double & refTds);
+        bool solve_timings(const std::vector<double> & refTimings, const double & refTds);
 
-        bool solve_steps(const std::vector<sva::PTransformd> & refSteps, const std::vector<double> & refTimings, const std::vector<double> & refDoubleSupportDuration);
+        bool solve_steps(const std::vector<sva::PTransformd> & refSteps);
 
         const std::vector<sva::PTransformd> & get_optimal_footsteps()
         {
@@ -90,6 +90,7 @@ class feasibility_solver
         int N_tdsLast;
         int N_steps;
         int N_timings;
+        int Niter_ = 0;
         
         double delta_ = 5e-3;
         double eta_ = 3.4;
@@ -130,6 +131,10 @@ class feasibility_solver
         std::vector<sva::PTransformd> optimalSteps_;
         std::vector<double> optimalStepsTimings_;
         std::vector<double> optimalDoubleSupportDuration_;
+
+        Eigen::VectorXd xStep_; //current decision variables for step QP
+        Eigen::VectorXd xTimings_; //current decision variables for timing QP
+
 
 
 };
