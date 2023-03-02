@@ -167,7 +167,7 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
     {
         double alpha_j = static_cast<double>(j) / static_cast<double>(N_ds_);
         if(!doubleSupport_){alpha_j = 1;}
-        Eigen::Vector4d Oij = (offsetCstrZMP_  + N_ * (alpha_j * P_supportFoot_0 + (1 - alpha_j) * p_init));
+        Eigen::Vector4d Oij = (offsetCstrZMP_  + N_ * (alpha_j * P_supportFoot_0 + (1 - alpha_j) * zmp_));
 
         A_f.block(0, j , 4, 1)     += Oij;
         A_f.block(0, j + 1 , 4, 1) -= Oij;

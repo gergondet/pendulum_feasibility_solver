@@ -103,7 +103,7 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
         const double mu_0jp1 = xTimings_[j+1] ; 
     
         b_f += (offsetCstrZMP_ 
-                + N_ * (alpha * P_supportFoot_0 + (1 - alpha) * p_init)) * 
+                + N_ * (alpha * P_supportFoot_0 + (1 - alpha) * zmp_)) * 
                 (mu_0j - mu_0jp1);
     }
 
