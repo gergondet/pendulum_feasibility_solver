@@ -8,8 +8,8 @@ bool feasibility_solver::solve(double t,double t_lift,
                     bool dbl_supp,
                     const Eigen::Vector2d & dcm, const Eigen::Vector2d & zmp , 
                     const std::string & supportFoot, const sva::PTransformd & X_0_supportFoot , const sva::PTransformd & X_0_swingFoot,
-                    double tds_ref , std::vector<sva::PTransformd> & steps_ref,
-                    std::vector<double> & timings_refs)
+                    double tds_ref , std::vector<sva::PTransformd> steps_ref,
+                    std::vector<double> timings_refs)
 {
 
     assert (steps_ref.size() == timings_refs.size());

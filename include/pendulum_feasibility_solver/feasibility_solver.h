@@ -40,8 +40,8 @@ class feasibility_solver
          * @return false no solution has been found or the dcm is not inside the found feasibility region
          */
         bool solve(double t,double t_lift,bool dbl_supp,const Eigen::Vector2d & dcm, const Eigen::Vector2d & zmp , const std::string & supportFoot, const sva::PTransformd & X_0_supportFoot , const sva::PTransformd & X_0_swingFoot,
-                   double tds_ref , std::vector<sva::PTransformd> & steps_ref,
-                   std::vector<double> & timings_refs);
+                   double tds_ref , std::vector<sva::PTransformd> steps_ref,
+                   std::vector<double> timings_refs);
         
         bool solve_timings(const std::vector<double> & refTimings, const double & refTds);
 
