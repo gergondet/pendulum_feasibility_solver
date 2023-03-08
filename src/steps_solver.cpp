@@ -63,8 +63,10 @@ void feasibility_solver::kinematics_contraints(Eigen::MatrixXd & A_out, Eigen::V
         cstr_index += static_cast<int>(ineq.rows());
     }
 
-    A_out = Eigen::MatrixXd::Zero(N_footsteps_kin_cstr , N_variables);
-    b_out = Eigen::VectorXd::Zero(N_footsteps_kin_cstr);
+    A_out.resize(N_footsteps_kin_cstr , N_variables);
+    A_out.setZero();
+    b_out.resize(N_footsteps_kin_cstr);
+    b_out.setZero();
     A_out.block(0, 0, N_footsteps_kin_cstr, 2 * N_steps) = foosteps_kin_cstr * Delta;
     b_out.segment(0, N_footsteps_kin_cstr) = b_kin_cstr;
 
@@ -84,8 +86,8 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     //DCM must remain inside the feasibility region
     Eigen::MatrixXd A_f = Eigen::MatrixXd::Zero(4,N_variables);
     Eigen::VectorXd b_f = Eigen::VectorXd::Zero(A_f.rows());
-    // A_f * x + b = Of + slack
-    //A_f * x + b >= N * P_u
+    // A_f * x + b = Of 
+    //A_f * x + b + slack >= N * P_u
 
     //We generate the cstr for each vertice of the rectangle
     
@@ -144,6 +146,8 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
         
     }
 
+    // Slack Variables
+    A_f.block(0,2 * N_steps , N_slack , N_slack ) = Eigen::Matrix4d::Identity() *  exp(-eta_ * t_);
 
     //Kinematics Constraints
     Eigen::MatrixXd A_kin = Eigen::MatrixXd::Zero(0,N_variables);
@@ -154,9 +158,6 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     Eigen::VectorXd b_ineq = Eigen::VectorXd::Zero(A_ineq.rows());
     A_ineq <<           - A_f *  exp(eta_ * t_)        , A_kin ;
     b_ineq <<    (b_f * exp(eta_ * t_) - (N_ * dcm_) ) , b_kin ;
-
-    // Slack Variables
-    A_ineq.block(0,2 * N_steps , N_slack , N_slack ) = Eigen::Matrix4d::Identity();
 
     const int NineqCstr = static_cast<int>(A_ineq.rows()); 
 
@@ -176,10 +177,9 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     }
     
     Eigen::MatrixXd M_slack = Eigen::MatrixXd::Zero(N_slack,N_variables);
-    M_slack.block(0,2 * N_steps,N_slack,N_slack) = 1e5 * Eigen::MatrixXd::Identity(N_slack,N_slack);
+    M_slack.block(0,2 * N_steps,N_slack,N_slack) = 1e3 * Eigen::MatrixXd::Identity(N_slack,N_slack);
     Eigen::VectorXd b_slack = Eigen::VectorXd::Zero(M_slack.rows());
 
-    //Keeping slack only on broken cstr
     Eigen::VectorXd x_init = Eigen::VectorXd::Zero(N_variables);
     x_init.segment(0,2*N_steps) = b_steps;
 
@@ -218,7 +218,7 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     
     solution_ = QP.result();
 
-    Eigen::Vector4d feasibilityOffset = exp(eta_ * t_) * ( A_f * solution_ + b_f);
+    Eigen::Vector4d feasibilityOffset = exp(eta_ * t_) * ( A_f.block(0,0,4,2*N_steps) * solution_.segment(0,2*N_steps) + b_f);
     // std::cout << "[Pendulum feasibility solver][Steps solver] output offset " << std::endl << feasibilityOffset << std::endl;
 
 
@@ -227,10 +227,11 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
         if(feasibilityOffset(i) < dcm_pose(i))
         {
             std::cout << "[Pendulum feasibility solver][Steps solver] " << "[iter : " << Niter_ <<"] solution broken cstr on " << i << std::endl;
+            std::cout << "Slack Steps: " << solution_.segment(2 * N_steps + i,1) << std::endl;
         }
     }
-    // Polygon feasibilityPolygon = Polygon(N_,feasibilityOffset);
-    // feasibilityRegion_ = feasibilityPolygon.Get_Polygone_Corners();
+    Polygon feasibilityPolygon = Polygon(N_,feasibilityOffset);
+    feasibilityRegion_ = feasibilityPolygon.Get_Polygone_Corners();
 
     // std::cout << "Slack Steps: " << solution_.segment(2 * N_steps,N_slack) << std::endl;
     
