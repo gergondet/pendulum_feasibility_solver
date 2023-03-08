@@ -200,11 +200,7 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
         }
 
     }
-    //Slack Variables
-    // A_f.block(0,N_variables - N_slack , N_slack , N_slack ) = Eigen::Matrix4d::Identity();
-
-    // std::cout << A_f << std::endl;
-    
+        
     //Steps timings constraints
     Eigen::MatrixXd A_Tsteps = Eigen::MatrixXd::Zero(0,N_variables);
     Eigen::VectorXd b_Tsteps = Eigen::VectorXd::Zero(0);
@@ -216,6 +212,11 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
     b_ineq << b_f * exp(eta_ * t_) - (N_ * dcm_ ) , b_Tsteps;
     const int NineqCstr = static_cast<int>(A_ineq.rows()); 
 
+    //Slack Variables
+    A_ineq.block(0,N_variables - N_slack , N_slack , N_slack ) = Eigen::Matrix4d::Identity();
+
+    // std::cout << A_f << std::endl;
+
     Eigen::MatrixXd A_eq = Eigen::MatrixXd::Zero(1 , N_variables);
     A_eq(0,0) = 1;
     Eigen::VectorXd b_eq = Eigen::VectorXd::Zero(A_eq.rows());
@@ -225,7 +226,11 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
     //Cost function
     Eigen::MatrixXd M_timings = Eigen::MatrixXd::Identity(N_variables - N_slack,N_variables);
     Eigen::VectorXd b_timings = Eigen::VectorXd::Ones(M_timings.rows());
+
+    Eigen::MatrixXd M_slack = Eigen::MatrixXd::Zero(N_slack,N_variables);
+    M_slack.block(0,N_variables - N_slack,N_slack,N_slack) = Eigen::MatrixXd::Identity(N_slack,N_slack);
     
+    // std::cout << "n timings " << N_timings << std::endl;
     double t_im1 =  0;
     for (int j = 0 ; j <= N_ds_  ; j ++)
     {
@@ -255,32 +260,36 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
         
     }
 
-    Eigen::MatrixXd M_slack = Eigen::MatrixXd::Zero(N_slack,N_variables);
-    M_slack.block(0,N_variables - N_slack,N_slack,N_slack) = 1e4 * Eigen::MatrixXd::Identity(N_slack,N_slack);
-    Eigen::VectorXd b_slack = Eigen::VectorXd::Zero(M_slack.rows());
 
     //Keeping slack only on broken cstr
     Eigen::VectorXd x_init = Eigen::VectorXd::Zero(N_variables);
     x_init.segment(0,N_variables - N_slack) = b_timings;
 
     Eigen::Vector4d feasibilityOffsetInit = exp(eta_ * t_) * ( A_f * x_init + b_f);
-    Eigen::Vector4d dcm_pose = N_ * dcm_;
+    Eigen::Vector4d dcm_pose  = N_ * dcm_;
 
     // std::cout << "[Pendulum feasibility solver][Timing solver] xStep " << std::endl << xStep_ << std::endl;
     // std::cout << "[Pendulum feasibility solver][Timing solver] init offset " << std::endl << feasibilityOffsetInit << std::endl;
-    
+    // bool ok = true;
     for (int i = 0 ; i < 4 ; i++)
     {
         if(feasibilityOffsetInit(i) < dcm_pose(i))
         {
             std::cout << "[Pendulum feasibility solver][Timing  solver] " << "[iter : " << Niter_ <<"] broken cstr on " << i << std::endl;
-
+            // ok = false;
         }
     }
+    // if(ok && Niter_ == 0)
+    // {
+    //     return true;
+    // }
 
     
-    Eigen::MatrixXd Q_cost = betaTsteps * M_timings.transpose() * M_timings + ( M_slack.transpose() * M_slack) + 1e-12 * Eigen::MatrixXd::Identity(N_variables,N_variables);
-    Eigen::VectorXd c_cost = betaTsteps * (-M_timings.transpose() * b_timings) + (-M_slack.transpose() * b_slack) ;
+    Eigen::MatrixXd Q_cost = betaTsteps * M_timings.transpose() * M_timings;
+    // Q_cost += 0e2 * M_deltaTs.transpose() * M_deltaTs;
+    Q_cost += 1e5 * M_slack.transpose() * M_slack;
+    Eigen::VectorXd c_cost = betaTsteps * (-M_timings.transpose() * b_timings) ;
+    // c_cost += 0e2 * -M_deltaTs.transpose() * b_deltaTs;
 
     Eigen::QuadProgDense QP;
     // std::cout << A_ineq << std::endl;
@@ -341,12 +350,12 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
     Polygon feasibilityPolygon = Polygon(N_,feasibilityOffset);
     feasibilityRegion_ = feasibilityPolygon.Get_Polygone_Corners();
 
-    // std::cout << "init " << std::endl;
+    // std::cout << "sol " << Niter_ << std::endl;
     // for (int i = 0 ; i < N_variables - N_slack ; i++)
     // {
-    //     std::cout << -log(b_timings(i))/eta_ << std::endl;
+    //     std::cout << -log(xTimings_(i))/eta_ << std::endl;
     // }
-    // std::cout << "Slack Timings: " << solution_.segment(N_variables - N_slack ,N_slack) << std::endl;
+    // std::cout << "Slack Timings: " << QP.result().segment(N_variables - N_slack ,N_slack) << std::endl;
 
 
     
@@ -359,7 +368,7 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
 
     for (int i = 1 ; i < NStepsTimings ; i++)
     {
-        tds_i = -log(xTimings_( (N_ds_+1) * i + N_ds_))/eta_  - ts_i;
+        tds_i = (-log(xTimings_( (N_ds_+1) * i + N_ds_))/eta_)  - ts_i;
         ts_i = -log(xTimings_( (N_ds_ + 1) * (i+1)))/eta_;
 
         
