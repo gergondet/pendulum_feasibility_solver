@@ -21,34 +21,34 @@ void feasibility_solver::timings_constraints(Eigen::MatrixXd & A_out, Eigen::Vec
     //All mu must be decreasing in the horizon
     Eigen::MatrixXd A_decrease = Eigen::MatrixXd::Zero(N_mu,NVariables);
     A_decrease.block(0,0,N_mu,N_mu) = Eigen::MatrixXd::Identity(N_mu,N_mu);
-    A_decrease.block(1,0,N_mu - 1,N_mu - 1).diagonal() = -Eigen::VectorXd::Ones(N_mu - 1) ;
+    A_decrease.block(1,0,N_mu - 1,N_mu - 1).diagonal() = -Eigen::VectorXd::Ones(N_mu - 1);
+    A_decrease(1,0) *= exp(-eta_ * delta_);
     A_vec.push_back(A_decrease.block(1,0,N_mu - 1 , NVariables));
     b_vec.push_back(Eigen::VectorXd::Zero(A_vec.back().rows()));
     N_cstr += static_cast<int>(A_vec.back().rows());
-    //Bounding kast mu
-    Eigen::MatrixXd A_maxLast = Eigen::MatrixXd::Zero(1,NVariables);
-    A_maxLast(0,N_mu - 1) = -1;
-    Eigen::VectorXd b_maxLast = Eigen::VectorXd::Zero(1);
-    b_maxLast(0) = -exp(-eta_ * 10);
-    A_vec.push_back(A_maxLast);
-    b_vec.push_back(b_maxLast);
-    N_cstr += static_cast<int>(A_vec.back().rows());
+    
 
     for (int i  = 0 ; i < NStepsTimings ; i++)
     {
-        Eigen::MatrixXd A_min = Eigen::MatrixXd::Zero(4,NVariables);
-        //All mu must be decreasing in the horizon
+        Eigen::MatrixXd A_min = Eigen::MatrixXd::Zero(3,NVariables);
         //Step must be bounded
         //Sg supp must be bounded
-        //Ds supp must be bounded
         Eigen::VectorXd b_min = Eigen::VectorXd::Zero(A_min.rows());
 
-        Eigen::MatrixXd A_max = Eigen::MatrixXd::Zero(3,NVariables);
+        Eigen::MatrixXd A_max = Eigen::MatrixXd::Zero(2,NVariables);
         Eigen::VectorXd b_max = Eigen::VectorXd::Zero(A_max.rows());
 
         A_min.block(0, (N_ds_ + 1) * i + N_ds_,1,2) = Eigen::RowVector2d{-1 , 1};
+
+        //Sg supp time cstr
+        A_min(0 , (N_ds_ + 1) * i + N_ds_) *= mu_ss_min;
+
         //Step time cstr
         A_min(1, (i+1) * (N_ds_ + 1) ) = 1;
+
+        //Ds cstr
+        A_min(2,(N_ds_ + 1) * i) = -mu_ds_min;
+        A_min(2,(N_ds_ + 1) * i + N_ds_) = 1;
 
         //Ts <= ts_max
         A_max(0, (i+1) * (N_ds_ + 1)) = -1;
@@ -65,13 +65,8 @@ void feasibility_solver::timings_constraints(Eigen::MatrixXd & A_out, Eigen::Vec
             //Step time cstr
             A_min( 1,     i * (N_ds_ + 1) ) = -mu_s_min;
             
-            //Sg supp time cstr
-            A_min(0 , (N_ds_ + 1) * i + N_ds_) *= mu_ss_min;
-            
             A_max(0, i * (N_ds_ + 1) ) = mu_s_max;
 
-            // A_max(2,  (N_ds_ + 1) * i + N_ds_ ) = -1;
-            // A_max(2,  (N_ds_ + 1) * i  ) = mu_ds_max;
         
         }
         
@@ -81,27 +76,23 @@ void feasibility_solver::timings_constraints(Eigen::MatrixXd & A_out, Eigen::Vec
             {
                 //Sg supp time cstr
                 //t_step >= t_ds + min_ss
-                A_min(0 ,  N_ds_) *= 0;
+                A_min(0 ,  N_ds_) = 0;
                 b_min(0) = mu_ss_min * exp(-eta_ * tLift_);
 
-                // //Tstep >= t_ + > 0.1 
-                // A_min(N_ds_ + 3 , N_ds_ + 1) = 1;
-                // b_min(N_ds_ + 3) = exp(-eta_ * ( t_ + 0.1 ));
+                //Ds cstr
+                A_min.row(2).setZero();
 
             }
             else
             {
-                //Tds <= tds_max
-                A_max(2,  (N_ds_ + 1) * i + N_ds_ ) = -1;
-                b_max(2) = -mu_ds_max;
+                A_min(2,0) = 0;
+                b_min(2) = mu_ds_min;
+            
             }
+            
 
             //t_step_0 >= t_s_min
             b_min(1) = mu_s_min;
-
-            //mu_0 >=  t_
-            A_min( 2 , 0) = 1;
-            b_min( 2 ) = exp(-eta_ * t_);
             
             //Ts <= ts_max
             b_max(0) = -mu_s_max;
@@ -116,8 +107,10 @@ void feasibility_solver::timings_constraints(Eigen::MatrixXd & A_out, Eigen::Vec
         N_cstr += static_cast<int>(A_vec.back().rows());
     }
 
-    A_out = Eigen::MatrixXd::Zero(N_cstr + N_mu,NVariables);
-    b_out = Eigen::VectorXd::Zero(A_out.rows());
+    A_out.resize(N_cstr + N_mu,NVariables);
+    A_out.setZero();
+    b_out.resize(A_out.rows());
+    b_out.setZero();
     
     Eigen::Index indx = 0;
     for (size_t i = 0 ; i < A_vec.size() ; i++)
@@ -132,8 +125,8 @@ void feasibility_solver::timings_constraints(Eigen::MatrixXd & A_out, Eigen::Vec
     }
 
     //mu must be positive 
-    A_out.block(N_cstr ,0,N_mu,N_mu) = Eigen::MatrixXd::Identity(N_mu,N_mu);
-    A_out.block(N_cstr ,0,N_mu,N_mu).diagonal()*=-1;
+    A_out.block(N_cstr ,0,N_mu,N_mu) = -Eigen::MatrixXd::Identity(N_mu,N_mu);
+    b_out.segment(N_cstr,N_mu) = -Eigen::VectorXd::Ones(N_mu) * exp(-eta_ * 10);
     
 }
 
