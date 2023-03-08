@@ -13,8 +13,8 @@ class feasibility_solver
         feasibility_solver() = default;
         ~feasibility_solver(){};
 
-        void configure(const double eta,const double delta , const Eigen::Vector2d & t_ds_range ,const Eigen::Vector2d & t_ss_range, const Eigen::Vector2d & t_s_range , const Eigen::Vector2d & stepCstrSize, 
-                      const Eigen::Vector2d & zmpRange, const double feetDistance, const int N_ds)
+        void configure(const double eta,const double delta , const Eigen::Vector2d t_ds_range ,const Eigen::Vector2d t_ss_range, const Eigen::Vector2d t_s_range , const Eigen::Vector2d stepCstrSize, 
+                      const Eigen::Vector2d zmpRange, const double feetDistance, const int N_ds)
         {
             delta_ = delta;
             eta_ = eta;
@@ -40,12 +40,12 @@ class feasibility_solver
          * @return false no solution has been found or the dcm is not inside the found feasibility region
          */
         bool solve(double t,double t_lift,bool dbl_supp,const Eigen::Vector2d & dcm, const Eigen::Vector2d & zmp , const std::string & supportFoot, const sva::PTransformd & X_0_supportFoot , const sva::PTransformd & X_0_swingFoot,
-                   double tds_ref , std::vector<sva::PTransformd> & steps_ref,
-                   std::vector<double> & timings_refs);
+                   double tds_ref , std::vector<sva::PTransformd> steps_ref,
+                   std::vector<double> timings_refs);
         
-        bool solve_timings(const std::vector<sva::PTransformd> & refSteps,const std::vector<double> & refTimings, const double & refTds);
+        bool solve_timings(const std::vector<double> & refTimings, const double & refTds);
 
-        bool solve_steps(const std::vector<sva::PTransformd> & refSteps, const std::vector<double> & refTimings, const std::vector<double> & refDoubleSupportDuration);
+        bool solve_steps(const std::vector<sva::PTransformd> & refSteps);
 
         const std::vector<sva::PTransformd> & get_optimal_footsteps()
         {
@@ -90,6 +90,7 @@ class feasibility_solver
         int N_tdsLast;
         int N_steps;
         int N_timings;
+        int Niter_ = 0;
         
         double delta_ = 5e-3;
         double eta_ = 3.4;
@@ -113,7 +114,8 @@ class feasibility_solver
         double t_ = 0;
         double tLift_ = 0; //time when contact has been released
         Eigen::Matrix<double,4,2> N_;
-        Eigen::Matrix<double,4,1> offsetCstrZMP_; 
+        Eigen::Matrix<double,4,1> offsetCstrZMP_;
+        Eigen::Matrix<double,4,1> offsetCstrZMPDblInit_; 
         Eigen::Vector2d dcm_;
         Eigen::Vector2d zmp_;
         std::string supportFoot_;
@@ -130,6 +132,10 @@ class feasibility_solver
         std::vector<sva::PTransformd> optimalSteps_;
         std::vector<double> optimalStepsTimings_;
         std::vector<double> optimalDoubleSupportDuration_;
+
+        Eigen::VectorXd xStep_; //current decision variables for step QP
+        Eigen::VectorXd xTimings_; //current decision variables for timing QP
+
 
 
 };

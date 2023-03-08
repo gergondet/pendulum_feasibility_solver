@@ -4,9 +4,12 @@
 
 
 
-bool feasibility_solver::solve(double t,double t_lift,bool dbl_supp,const Eigen::Vector2d & dcm, const Eigen::Vector2d & zmp , const std::string & supportFoot, const sva::PTransformd & X_0_supportFoot , const sva::PTransformd & X_0_swingFoot,
-                   double tds_ref , std::vector<sva::PTransformd> & steps_ref,
-                   std::vector<double> & timings_refs)
+bool feasibility_solver::solve(double t,double t_lift,
+                    bool dbl_supp,
+                    const Eigen::Vector2d & dcm, const Eigen::Vector2d & zmp , 
+                    const std::string & supportFoot, const sva::PTransformd & X_0_supportFoot , const sva::PTransformd & X_0_swingFoot,
+                    double tds_ref , std::vector<sva::PTransformd> steps_ref,
+                    std::vector<double> timings_refs)
 {
 
     assert (steps_ref.size() == timings_refs.size());
@@ -29,24 +32,92 @@ bool feasibility_solver::solve(double t,double t_lift,bool dbl_supp,const Eigen:
     N_timings = N_steps;
       
     Eigen::VectorXd Tds = Eigen::VectorXd::Ones(refTimings_.size()) * refTds_;
+    Eigen::VectorXd Tds_min = Eigen::VectorXd::Ones(refTimings_.size()) * (t_s_range_ - t_ss_range_).x();
     refDoubleSupportDuration_ = std::vector<double>(Tds.data(), Tds.data() + Tds.rows() );
-    optimalDoubleSupportDuration_ = refDoubleSupportDuration_;
-    t_ = t;
-    const Eigen::Matrix2d & R_supportFoot_0 = X_0_SupportFoot_.rotation().transpose().block(0,0,2,2);
+    // optimalDoubleSupportDuration_ = std::vector<double>(Tds_min.data(), Tds_min.data() + Tds_min.rows() );
+    optimalDoubleSupportDuration_ = std::vector<double>(Tds.data(), Tds.data() + Tds.rows() );
+    // optimalStepsTimings_.clear();
+    // for(int i = 0 ; i < N_timings ; i++)
+    // {
+    //    optimalStepsTimings_.push_back( (i+1) * t_s_range_.x() );
+    // }
+    t_ = std::max(0. , t);
+    Eigen::Matrix2d R_0_rect = X_0_SupportFoot_.rotation().block(0,0,2,2);
+    if(doubleSupport_)
+    {
+        Eigen::Vector2d y1 = (X_0_supportFoot.translation() - X_0_swingFoot.translation()).segment(0,2);
+        y1.normalize();
+        Eigen::Vector2d x1 = -(Eigen::Vector3d{0,0,1}.cross(Eigen::Vector3d{y1(0),y1(1),0})).segment(0,2);
+        R_0_rect.block(0,0,1,2) = x1.transpose();
+        R_0_rect.block(1,0,1,2) = y1.transpose();
+    }
     N_ <<  1.  ,  0.,
            0.  , -1.,
           -1.  ,  0.,
            0.  ,  1.;
           
-    N_*= R_supportFoot_0.transpose();
+    N_*= R_0_rect;
+
+    xStep_ = Eigen::VectorXd::Zero(2 * N_steps);
+    xTimings_ = Eigen::VectorXd::Zero(N_timings * (N_ds_ + 1) + N_tdsLast);
+    double t_im1 =  0;
+    for (int j = 0 ; j <= N_ds_  ; j ++)
+    {
+        
+        double alpha_j = static_cast<double>(j)/static_cast<double>(N_ds_);
+        if(doubleSupport_)
+        {
+            xTimings_(j) = exp(-eta_ * ( t_ + alpha_j * (optimalDoubleSupportDuration_[0] - t_)) );
+        }
+        else
+        {
+            xTimings_(j) = exp(-eta_ * t_ );
+        }
+
+    }
+    for(int i = 0 ; i <= N_steps ; i++)
+    {
+        if(i!=N_steps)
+        {
+            xStep_.segment(2*i,2) = optimalSteps_[i].translation().segment(0,2);
+        }
+        if(i != 0)
+        {
+            t_im1 = optimalStepsTimings_[i-1];
+            for (int j = 0 ; j <= (i != N_steps ? N_ds_ : N_tdsLast - 1 )  ; j ++)
+            {
+                
+                double alpha_j = static_cast<double>(j)/static_cast<double>(N_ds_);
+                xTimings_( (N_ds_ + 1) * i + j) = exp(-eta_ * ( t_im1 + alpha_j * (optimalDoubleSupportDuration_[i])) );
+
+            }
+        }
+    }
 
     //cst part of the offsets
     offsetCstrZMP_ << zmpRange_.x()/2,  zmpRange_.y()/2, zmpRange_.x()/2,  zmpRange_.y()/2;
+    const double l = (X_0_supportFoot.translation() - X_0_SwingFoot_.translation()).norm();
+    double dblSuppRange_x = std::abs( (R_0_rect * Eigen::Vector2d{zmpRange_.x() , 0.}).x() );
+
+    offsetCstrZMPDblInit_ << dblSuppRange_x/2,  l/2, dblSuppRange_x/2,  l/2;
 
     bool ret = true;
-    ret = ret && solve_timings(optimalSteps_,refTimings_,refTds_);
-    ret = ret && solve_steps(refSteps_,optimalStepsTimings_,optimalDoubleSupportDuration_);
-    ret = ret && solve_timings(optimalSteps_,refTimings_,refTds_);
+    Niter_ = 0;
+    ret = ret && solve_timings(refTimings_,refTds_);
+    Niter_ += 1;
+    ret = ret && solve_steps(refSteps_);
+    Niter_ += 1;
+    ret = ret && solve_timings(refTimings_,refTds_);
+    // if(!ret)
+    // {
+    //     ret = true;
+    //     Niter_ += 1;
+    //     ret = ret && solve_steps(refSteps_);
+    //     Niter_ += 1;
+    //     ret = ret && solve_timings(refTimings_,refTds_);
+    // }
+
+    
 
     bool feasible_ = true;
 
