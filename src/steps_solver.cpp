@@ -98,13 +98,19 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     {
 
         double alpha = static_cast<double>(j) / static_cast<double>(N_ds_);
-        if(!doubleSupport_){alpha = 1;}
+        // if(!doubleSupport_){alpha = 1;}
         const double mu_0j = xTimings_[j] ; 
         const double mu_0jp1 = xTimings_[j+1] ; 
-    
-        b_f += (offsetCstrZMP_ 
-                + N_ * (alpha * P_supportFoot_0 + (1 - alpha) * zmp_)) * 
-                (mu_0j - mu_0jp1);
+
+        if(doubleSupport_ && j < N_ds_)
+        {
+            b_f += (offsetCstrZMPDblInit_ + N_ * (P_supportFoot_0 +  P_swingFoot_0) * 0.5)*(mu_0j - mu_0jp1);
+        }
+        else
+        {         
+           b_f += (offsetCstrZMP_ + N_ * P_supportFoot_0) *  (mu_0j - mu_0jp1);
+        }
+        
     }
 
     //Remainings

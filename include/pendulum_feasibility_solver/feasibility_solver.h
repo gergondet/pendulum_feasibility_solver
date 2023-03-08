@@ -114,7 +114,8 @@ class feasibility_solver
         double t_ = 0;
         double tLift_ = 0; //time when contact has been released
         Eigen::Matrix<double,4,2> N_;
-        Eigen::Matrix<double,4,1> offsetCstrZMP_; 
+        Eigen::Matrix<double,4,1> offsetCstrZMP_;
+        Eigen::Matrix<double,4,1> offsetCstrZMPDblInit_; 
         Eigen::Vector2d dcm_;
         Eigen::Vector2d zmp_;
         std::string supportFoot_;
