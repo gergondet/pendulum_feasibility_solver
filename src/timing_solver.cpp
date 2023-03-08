@@ -224,6 +224,31 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
     const int NeqCstr = static_cast<int>(A_eq.rows()); 
     
     //Cost function
+    Eigen::MatrixXd M_deltaTs = Eigen::MatrixXd::Zero(2 * N_timings,N_variables);
+    Eigen::MatrixXd b_deltaTs = Eigen::VectorXd::Zero(M_deltaTs.rows());
+
+    for(int i = 0 ; i < N_timings ; i ++)
+    {
+        M_deltaTs.block(2 * i,(N_ds_ + 1) * i + N_ds_,1,2) = Eigen::RowVector2d{-1,1};
+
+        if(i != 0)
+        {
+            M_deltaTs(2 * i     , (N_ds_ + 1) * i + N_ds_) = -exp(-eta_ * ( refTimings[i] - refTimings[i-1] - refTds_));
+            M_deltaTs(2 * i + 1 , (N_ds_ + 1) * i + N_ds_) = 1;
+            M_deltaTs(2 * i + 1 , (N_ds_ + 1) * i) = -exp(-eta_ * (refTds_));
+        }
+        else
+        {
+            M_deltaTs(2 * i     , (N_ds_ + 1) * i + N_ds_) = -exp(-eta_ * ( refTimings[0] - refTds_));
+            if(!doubleSupport_)
+            {
+                M_deltaTs(2 * i     , (N_ds_ + 1) * i + N_ds_) = 0;
+                b_deltaTs(2 * i) = exp(-eta_ * (tLift_ + refTimings[0] - refTds_) );
+            }
+        }
+
+    }
+
     Eigen::MatrixXd M_timings = Eigen::MatrixXd::Identity(N_variables - N_slack,N_variables);
     Eigen::VectorXd b_timings = Eigen::VectorXd::Ones(M_timings.rows());
 
