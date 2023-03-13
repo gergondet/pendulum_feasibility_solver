@@ -73,26 +73,26 @@ void feasibility_solver::kinematics_contraints(Eigen::MatrixXd & A_out, Eigen::V
 
 }
 
-bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSteps)
+void feasibility_solver::build_steps_feasibility_matrix(Eigen::MatrixXd & A_f, Eigen::VectorXd & b_f, const sva::PTransformd & X_0_supp, const sva::PTransformd & X_0_swg)
 {
-
     const int N_slack = static_cast<int>(N_.rows());
     const int N_variables = 2 * N_steps + N_slack;
 
-    const Eigen::Vector2d & P_supportFoot_0 = X_0_SupportFoot_.translation().segment(0,2);
-    const Eigen::Vector2d & P_swingFoot_0 = X_0_SwingFoot_.translation().segment(0,2);
+    const Eigen::Vector2d & P_supportFoot_0 = X_0_supp.translation().segment(0,2);
+    const Eigen::Vector2d & P_swingFoot_0 = X_0_swg.translation().segment(0,2);
     
 
     //DCM must remain inside the feasibility region
-    Eigen::MatrixXd A_f = Eigen::MatrixXd::Zero(4,N_variables);
-    Eigen::VectorXd b_f = Eigen::VectorXd::Zero(A_f.rows());
+    A_f.resize(4,N_variables);
+    b_f.resize(A_f.rows());
+    A_f.setZero();
+    b_f.setZero();
     // A_f * x + b = Of 
     //A_f * x + b + slack >= N * P_u
 
     //We generate the cstr for each vertice of the rectangle
     
     double tds = optimalDoubleSupportDuration_[0];
-    const Eigen::Vector2d p_init = P_supportFoot_0 * t_/tds + P_swingFoot_0 * (1 - t_/tds );
     //i = 0 
  
         
@@ -145,9 +145,21 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
         }
         
     }
+}
 
-    // Slack Variables
-    A_f.block(0,2 * N_steps , N_slack , N_slack ) = Eigen::Matrix4d::Identity() *  exp(-eta_ * t_);
+bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSteps)
+{
+
+    const int N_slack = static_cast<int>(N_.rows());
+    const int N_variables = 2 * N_steps + N_slack;
+
+    //DCM must remain inside the feasibility region
+    Eigen::MatrixXd A_f = Eigen::MatrixXd::Zero(4,N_variables);
+    Eigen::VectorXd b_f = Eigen::VectorXd::Zero(A_f.rows());
+    
+    build_steps_feasibility_matrix(A_f,b_f,X_0_SupportFoot_,X_0_SwingFoot_);
+
+
 
     //Kinematics Constraints
     Eigen::MatrixXd A_kin = Eigen::MatrixXd::Zero(0,N_variables);
@@ -158,6 +170,9 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     Eigen::VectorXd b_ineq = Eigen::VectorXd::Zero(A_ineq.rows());
     A_ineq <<           - A_f *  exp(eta_ * t_)        , A_kin ;
     b_ineq <<    (b_f * exp(eta_ * t_) - (N_ * dcm_) ) , b_kin ;
+    
+    // Slack Variables
+    A_ineq.block(0,2 * N_steps , N_slack , N_slack ) = Eigen::Matrix4d::Identity() ;
 
     const int NineqCstr = static_cast<int>(A_ineq.rows()); 
 
@@ -177,7 +192,7 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     }
     
     Eigen::MatrixXd M_slack = Eigen::MatrixXd::Zero(N_slack,N_variables);
-    M_slack.block(0,2 * N_steps,N_slack,N_slack) = 1e3 * Eigen::MatrixXd::Identity(N_slack,N_slack);
+    M_slack.block(0,2 * N_steps,N_slack,N_slack) = 1e4 * Eigen::MatrixXd::Identity(N_slack,N_slack);
     Eigen::VectorXd b_slack = Eigen::VectorXd::Zero(M_slack.rows());
 
     Eigen::VectorXd x_init = Eigen::VectorXd::Zero(N_variables);
@@ -248,6 +263,4 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
 
     } 
     return true;
-
-
 }

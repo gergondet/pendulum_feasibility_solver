@@ -253,3 +253,28 @@ void feasibility_solver::update_x()
         x_.segment( static_cast<Eigen::Index>( N_timings * (N_ds_ + 1) + N_tdsLast + 2 * i ) , 2) = optimalSteps_[i].translation().segment(0,2);
     }
 }
+
+std::vector<Eigen::Vector3d> feasibility_solver::get_feasibility_region(const sva::PTransformd & X_0_supportFoot , const sva::PTransformd & X_0_swingFoot)
+{
+    const int NStepsTimings = N_steps;
+    const int N_slack = static_cast<int>(N_.rows());
+    const int N_variables =  NStepsTimings * (N_ds_ + 1) + N_tdsLast + N_slack;
+
+    //Variables are organised as such  : timings then slack variables
+    //step i occur at indx (N_ds + 1) * i
+    //sg suport i start at indx (N_ds + 1) * i + N_ds
+
+
+    //DCM must remain inside the feasibility region
+    Eigen::MatrixXd A_f = Eigen::MatrixXd::Zero(N_.rows(),N_variables);
+    Eigen::VectorXd b_f = Eigen::VectorXd::Zero(A_f.rows());
+    //A_f * x + b + slck >= N * P_u
+    
+    build_time_feasibility_matrix(A_f,b_f,X_0_supportFoot,X_0_swingFoot);
+    
+    Eigen::Vector4d feasibilityOffset = exp(eta_ * t_) * ( A_f.block(0,0,N_.rows(),N_variables - N_slack) * xTimings_ + b_f);
+    // std::cout << "[Pendulum feasibility solver][Timing solver] output offset " << std::endl << feasibilityOffset << std::endl;
+    Polygon feasibilityPolygon = Polygon(N_,feasibilityOffset);
+    return feasibilityPolygon.Get_Polygone_Corners();
+
+}

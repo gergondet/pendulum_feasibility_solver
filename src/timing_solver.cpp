@@ -130,19 +130,14 @@ void feasibility_solver::timings_constraints(Eigen::MatrixXd & A_out, Eigen::Vec
     
 }
 
-bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, const double & refTds)
+void feasibility_solver::build_time_feasibility_matrix(Eigen::MatrixXd & A_f, Eigen::VectorXd & b_f, const sva::PTransformd & X_0_supp, const sva::PTransformd & X_0_swg)
 {
     const int NStepsTimings = N_steps;
     const int N_slack = static_cast<int>(N_.rows());
     const int N_variables =  NStepsTimings * (N_ds_ + 1) + N_tdsLast + N_slack;
 
-    
-
-    const Eigen::Vector2d & P_supportFoot_0 = X_0_SupportFoot_.translation().segment(0,2);
-    const Eigen::Vector2d & P_swingFoot_0 = X_0_SwingFoot_.translation().segment(0,2);
-
-    const Eigen::Vector2d p_init = P_supportFoot_0 * t_/refTds + P_swingFoot_0 * (1 - t_/refTds );
-
+    const Eigen::Vector2d & P_supportFoot_0 = X_0_supp.translation().segment(0,2);
+    const Eigen::Vector2d & P_swingFoot_0 = X_0_swg.translation().segment(0,2);
 
     //Variables are organised as such  : timings then slack variables
     //step i occur at indx (N_ds + 1) * i
@@ -150,8 +145,10 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
 
 
     //DCM must remain inside the feasibility region
-    Eigen::MatrixXd A_f = Eigen::MatrixXd::Zero(N_.rows(),N_variables);
-    Eigen::VectorXd b_f = Eigen::VectorXd::Zero(A_f.rows());
+    A_f.resize(N_.rows(),N_variables);
+    b_f.resize(A_f.rows());
+    A_f.setZero();
+    b_f.setZero();
     //A_f * x + b + slck >= N * P_u
     
     //i = 0 
@@ -194,12 +191,28 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
             if(!(i == NStepsTimings && j == N_tdsLast - 1))
             {
                 A_f.block(0,i * (N_ds_ + 1) + j + 1 ,4,1) -= O_ij;
-            }
-            
-            
+            }   
         }
-
     }
+}
+
+bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, const double & refTds)
+{
+    const int NStepsTimings = N_steps;
+    const int N_slack = static_cast<int>(N_.rows());
+    const int N_variables =  NStepsTimings * (N_ds_ + 1) + N_tdsLast + N_slack;
+
+    //Variables are organised as such  : timings then slack variables
+    //step i occur at indx (N_ds + 1) * i
+    //sg suport i start at indx (N_ds + 1) * i + N_ds
+
+
+    //DCM must remain inside the feasibility region
+    Eigen::MatrixXd A_f = Eigen::MatrixXd::Zero(N_.rows(),N_variables);
+    Eigen::VectorXd b_f = Eigen::VectorXd::Zero(A_f.rows());
+    //A_f * x + b + slck >= N * P_u
+    
+    build_time_feasibility_matrix(A_f,b_f,X_0_SupportFoot_,X_0_SwingFoot_);
         
     //Steps timings constraints
     Eigen::MatrixXd A_Tsteps = Eigen::MatrixXd::Zero(0,N_variables);

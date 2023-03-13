@@ -47,6 +47,8 @@ class feasibility_solver
 
         bool solve_steps(const std::vector<sva::PTransformd> & refSteps);
 
+        std::vector<Eigen::Vector3d> get_feasibility_region(const sva::PTransformd & X_0_supportFoot , const sva::PTransformd & X_0_swingFoot);
+
         const std::vector<sva::PTransformd> & get_optimal_footsteps()
         {
             return optimalSteps_;
@@ -68,6 +70,28 @@ class feasibility_solver
         }
     
     private:
+
+        /**
+         * @brief build A and b such as the feasibility constraint is A * x + b >= N * Pu
+         * where x is the time decision variables
+         * 
+         * @param A_out 
+         * @param b_out 
+         * @param X_0_supp 
+         * @param X_0_swg 
+         */
+        void build_time_feasibility_matrix(Eigen::MatrixXd & A_out, Eigen::VectorXd & b_out, const sva::PTransformd & X_0_supp, const sva::PTransformd & X_0_swg);
+
+        /**
+         * @brief build A and b such as the feasibility constraint is A * x + b >= N * Pu
+         * where x is the time decision variables
+         * 
+         * @param A_out 
+         * @param b_out 
+         * @param X_0_supp 
+         * @param X_0_swg 
+         */
+        void build_steps_feasibility_matrix(Eigen::MatrixXd & A_out, Eigen::VectorXd & b_out, const sva::PTransformd & X_0_supp, const sva::PTransformd & X_0_swg);
 
         void timings_constraints(Eigen::MatrixXd & A_out, Eigen::VectorXd & b_out, const int NStepsTimings);
 
