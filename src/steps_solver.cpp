@@ -143,8 +143,9 @@ void feasibility_solver::build_steps_feasibility_matrix(Eigen::MatrixXd & A_f, E
             b_f += offsetCstrZMP_ * (mu_ij - mu_ijp1) ;
             
         }
-        
     }
+    // std::cout << "A_f" << std::endl << A_f.block(0,0,4,N_variables) << std::endl;
+
 }
 
 bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSteps)
@@ -192,8 +193,8 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     }
     
     Eigen::MatrixXd M_slack = Eigen::MatrixXd::Zero(N_slack,N_variables);
-    M_slack.block(0,2 * N_steps,N_slack,N_slack) = 1e4 * Eigen::MatrixXd::Identity(N_slack,N_slack);
-    Eigen::VectorXd b_slack = Eigen::VectorXd::Zero(M_slack.rows());
+    M_slack.block(0,2 * N_steps,N_slack,N_slack) = 1e2 * Eigen::MatrixXd::Identity(N_slack,N_slack);
+    const Eigen::VectorXd b_slack = Eigen::VectorXd::Zero(M_slack.rows());
 
     Eigen::VectorXd x_init = Eigen::VectorXd::Zero(N_variables);
     x_init.segment(0,2*N_steps) = b_steps;
@@ -211,19 +212,26 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
             std::cout << "[Pendulum feasibility solver][Steps solver] " << "[iter : " << Niter_ <<"] broken cstr on " << i << std::endl;
         }
     }
-    // std::cout << "A_ineq" << std::endl << A_ineq << std::endl;
+    // std::cout << "A_ineq" << std::endl << A_ineq.block(0,0,4,N_variables) << std::endl;
     // std::cout << "b_ineq" << std::endl << b_ineq << std::endl;
     // std::cout << "N(i) " << std::endl << N_.row(i) << std::endl;
 
-    const Eigen::MatrixXd Q_cost = betaSteps * ( M_steps.transpose() * M_steps) + ( M_slack.transpose() * M_slack) ;
-    const Eigen::VectorXd c_cost = betaSteps * (-M_steps.transpose() * b_steps) + (-M_slack.transpose() * b_slack) ;
+    Eigen::MatrixXd Q_cost = betaSteps * ( M_steps.transpose() * M_steps) + ( M_slack.transpose() * M_slack) ;
+    Eigen::VectorXd c_cost = betaSteps * (-M_steps.transpose() * b_steps) + (-M_slack.transpose() * b_slack) ;
 
     Eigen::QuadProgDense QP;
     // QP.tolerance(5e-4);
     QP.problem(N_variables, NeqCstr,NineqCstr);
     bool QPsuccess = QP.solve(Q_cost, c_cost, A_eq, b_eq, A_ineq, b_ineq);
 
-
+    if(!QPsuccess)
+    {
+        std::cout << "[Pendulum feasibility solver][Steps solver] " << "[iter : " << Niter_ <<"] QP Failed, lowering slack" << std::endl;
+        M_slack.block(0,2 * N_steps,N_slack,N_slack) = 1e0 * Eigen::MatrixXd::Identity(N_slack,N_slack);
+        Q_cost = betaSteps * ( M_steps.transpose() * M_steps) + ( M_slack.transpose() * M_slack) ;
+        c_cost = betaSteps * (-M_steps.transpose() * b_steps) + (-M_slack.transpose() * b_slack) ;
+        QPsuccess = QP.solve(Q_cost, c_cost, A_eq, b_eq, A_ineq, b_ineq);
+    }
 
     if(!QPsuccess)
     {

@@ -246,13 +246,13 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
 
         if(i != 0)
         {
-            M_deltaTs(2 * i     , (N_ds_ + 1) * i + N_ds_) = -exp(-eta_ * ( refTimings[i] - refTimings[i-1] - refTds_));
+            M_deltaTs(2 * i     , (N_ds_ + 1) * i + N_ds_) *= exp(-eta_ * ( refTimings[i] - refTimings[i-1] - refTds_));
             M_deltaTs(2 * i + 1 , (N_ds_ + 1) * i + N_ds_) = 1;
             M_deltaTs(2 * i + 1 , (N_ds_ + 1) * i) = -exp(-eta_ * (refTds_));
         }
         else
         {
-            M_deltaTs(2 * i     , (N_ds_ + 1) * i + N_ds_) = -exp(-eta_ * ( refTimings[0] - refTds_));
+            M_deltaTs(2 * i     , N_ds_ ) *= exp(-eta_ * ( refTimings[0] - refTds_));
             if(!doubleSupport_)
             {
                 M_deltaTs(2 * i     , (N_ds_ + 1) * i + N_ds_) = 0;
@@ -324,10 +324,10 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
 
     
     Eigen::MatrixXd Q_cost = betaTsteps * M_timings.transpose() * M_timings;
-    // Q_cost += 0e2 * M_deltaTs.transpose() * M_deltaTs;
+    Q_cost += 5e0 * M_deltaTs.transpose() * M_deltaTs;
     Q_cost += 1e5 * M_slack.transpose() * M_slack;
     Eigen::VectorXd c_cost = betaTsteps * (-M_timings.transpose() * b_timings) ;
-    // c_cost += 0e2 * -M_deltaTs.transpose() * b_deltaTs;
+    c_cost += 5e0 * -M_deltaTs.transpose() * b_deltaTs;
 
     Eigen::QuadProgDense QP;
     // std::cout << A_ineq << std::endl;
