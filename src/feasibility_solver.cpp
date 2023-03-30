@@ -97,9 +97,8 @@ bool feasibility_solver::solve(double t,double t_lift,
     //cst part of the offsets
     offsetCstrZMP_ << zmpRange_.x()/2,  zmpRange_.y()/2, zmpRange_.x()/2,  zmpRange_.y()/2;
     const double l = (X_0_supportFoot.translation() - X_0_SwingFoot_.translation()).norm();
-    double dblSuppRange_x = std::abs( (R_0_rect * Eigen::Vector2d{zmpRange_.x() , 0.}).x() );
 
-    offsetCstrZMPDblInit_ << dblSuppRange_x/2,  l/2, dblSuppRange_x/2,  l/2;
+    offsetCstrZMPDblInit_ << zmpRange_.x()/2,  l/2, zmpRange_.x()/2,  l/2;
 
     bool ret = true;
     Niter_ = 0;
