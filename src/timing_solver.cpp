@@ -329,6 +329,17 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
     Eigen::VectorXd c_cost = betaTsteps * (-M_timings.transpose() * b_timings) ;
     c_cost += 5e0 * -M_deltaTs.transpose() * b_deltaTs;
 
+    if((optimalSteps_[0].translation() - refSteps_[0].translation()).norm() > 0.05)
+    {
+        Eigen::MatrixXd M_plan = Eigen::MatrixXd::Zero(1,N_variables);
+        Eigen::VectorXd b_plan = Eigen::VectorXd::Zero(M_plan.rows());
+        M_plan(0,N_ds_ + 1) = 1;
+        b_plan(0) = 1; 
+        Q_cost += 5e0 * M_plan .transpose() * M_plan;
+        c_cost += 5e0 * -M_plan.transpose() * b_plan; 
+    }
+
+
     Eigen::QuadProgDense QP;
     // std::cout << A_ineq << std::endl;
     // std::cout << b_ineq << std::endl;
