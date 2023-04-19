@@ -345,7 +345,7 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
 
     if(!QPsuccess)
     {
-        // std::cout << "[Pendulum feasibility solver][Timing solver] " << "[iter : " << Niter_ <<"] QP Failed" << std::endl;
+        std::cout << "[Pendulum feasibility solver][Timing solver] " << "[iter : " << Niter_ <<"] QP Failed" << std::endl;
         // Eigen::VectorXd Tds = Eigen::VectorXd::Ones(refTimings.size()) * (t_s_range_ - t_ss_range_).x();
         // Eigen::VectorXd Ts = Eigen::VectorXd::Zero(refTimings.size());
         // for(int i = 0 ; i < Ts.size() ; i++)
