@@ -152,6 +152,39 @@ void feasibility_solver::build_steps_feasibility_matrix(Eigen::MatrixXd & A_f, E
 bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSteps)
 {
 
+    xTimings_ = Eigen::VectorXd::Zero(N_timings * (N_ds_ + 1) + N_tdsLast);
+    double t_im1 =  0;
+    for (int j = 0 ; j <= N_ds_  ; j ++)
+    {
+        
+        double alpha_j = static_cast<double>(j)/static_cast<double>(N_ds_);
+        if(doubleSupport_)
+        {
+            xTimings_(j) = exp(-eta_ * ( t_ + alpha_j * (optimalDoubleSupportDuration_[0] - t_)) );
+        }
+        else
+        {
+            xTimings_(j) = exp(-eta_ * t_ );
+        }
+
+    }
+    for(int i = 1 ; i <= N_steps ; i++)
+    {
+
+
+        t_im1 = i == 1 ? optimalStepsTimings_[0] : t_im1 + (optimalStepsTimings_[i-1] - optimalStepsTimings_[i-2]) ;
+
+    
+        for (int j = 0 ; j <= (i != N_steps ? N_ds_ : N_tdsLast - 1 )  ; j ++)
+        {
+            
+            double alpha_j = static_cast<double>(j)/static_cast<double>(N_ds_);
+            xTimings_( (N_ds_ + 1) * i + j) = exp(-eta_ * ( t_im1 + alpha_j * (optimalDoubleSupportDuration_[i])) );
+
+        }
+        
+    }
+
     const int N_slack = static_cast<int>(N_.rows());
     size_t tstep_indx = 0;
     while(1.5 + t_> optimalStepsTimings_[tstep_indx])
