@@ -172,14 +172,14 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     {
 
 
-        t_im1 = i == 1 ? optimalStepsTimings_[0] : t_im1 + (optimalStepsTimings_[i-1] - optimalStepsTimings_[i-2]) ;
+        t_im1 = i == 1 ? optimalStepsTimings_[0] : t_im1 + (refTimings_[i-1] - refTimings_[i-2]) ;
 
     
         for (int j = 0 ; j <= (i != N_steps ? N_ds_ : N_tdsLast - 1 )  ; j ++)
         {
             
             double alpha_j = static_cast<double>(j)/static_cast<double>(N_ds_);
-            xTimings_( (N_ds_ + 1) * i + j) = exp(-eta_ * ( t_im1 + alpha_j * (optimalDoubleSupportDuration_[i])) );
+            xTimings_( (N_ds_ + 1) * i + j) = exp(-eta_ * ( t_im1 + alpha_j * (refTds_)) );
 
         }
         
@@ -250,7 +250,7 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     }
     
     Eigen::MatrixXd M_slack = Eigen::MatrixXd::Zero(N_slack,N_variables);
-    M_slack.block(0,2 * n_steps,N_slack,N_slack) = 1e5 * Eigen::MatrixXd::Identity(N_slack,N_slack);
+    M_slack.block(0,2 * n_steps,N_slack,N_slack) = 1e2 * Eigen::MatrixXd::Identity(N_slack,N_slack);
     const Eigen::VectorXd b_slack = Eigen::VectorXd::Zero(M_slack.rows());
 
     Eigen::VectorXd x_init = Eigen::VectorXd::Zero(N_variables);
