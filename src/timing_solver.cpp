@@ -240,7 +240,7 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
     Eigen::MatrixXd M_deltaTs = Eigen::MatrixXd::Zero(2 * N_timings,N_variables);
     Eigen::MatrixXd b_deltaTs = Eigen::VectorXd::Zero(M_deltaTs.rows());
 
-    for(int i = 0 ; i < N_timings ; i ++)
+    for(int i = 1 ; i < N_timings ; i ++)
     {
         M_deltaTs.block(2 * i,(N_ds_ + 1) * i + N_ds_,1,2) = Eigen::RowVector2d{-1,1};
 
