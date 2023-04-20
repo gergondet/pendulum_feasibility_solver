@@ -21,7 +21,7 @@ void feasibility_solver::timings_constraints(Eigen::MatrixXd & A_out, Eigen::Vec
     //All mu must be decreasing in the horizon
     Eigen::MatrixXd A_decrease = Eigen::MatrixXd::Zero(N_mu,NVariables);
     A_decrease.block(0,0,N_mu,N_mu) = Eigen::MatrixXd::Identity(N_mu,N_mu);
-    A_decrease.block(1,0,N_mu - 1,N_mu - 1).diagonal() = -Eigen::VectorXd::Ones(N_mu - 1) * exp(-eta_ * delta_);
+    A_decrease.block(1,0,N_mu - 1,N_mu - 1).diagonal() = -Eigen::VectorXd::Ones(N_mu - 1) * exp(-eta_ * 0.002);
     A_decrease(1,0) *= exp(-eta_ * delta_);
     A_vec.push_back(A_decrease.block(1,0,N_mu - 1 , NVariables));
     b_vec.push_back(Eigen::VectorXd::Zero(A_vec.back().rows()));
