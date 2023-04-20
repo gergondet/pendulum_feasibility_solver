@@ -172,7 +172,7 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     {
 
 
-        t_im1 = i == 1 ? optimalStepsTimings_[0] : t_im1 + (refTimings_[i-1] - refTimings_[i-2]) ;
+        t_im1 = i == 1 ? optimalStepsTimings_[0] : t_im1 + (optimalStepsTimings_[i-1] - optimalStepsTimings_[i-2]) ;
 
     
         for (int j = 0 ; j <= (i != N_steps ? N_ds_ : N_tdsLast - 1 )  ; j ++)

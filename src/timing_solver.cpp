@@ -338,8 +338,8 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
         M_plan(0,(i + 1) * (N_ds_ + 1)) = -1;
         // b_plan(0) = 1; 
         const double steps_error = (optimalSteps_[i].translation() - refSteps_[i].translation()).norm();  
-        Q_cost += 1e1 * steps_error * M_plan .transpose() * M_plan;
-        c_cost += 1e1 * steps_error * -M_plan.transpose() * b_plan; 
+        Q_cost += 1e3 * steps_error * M_plan .transpose() * M_plan;
+        c_cost += 1e3 * steps_error * -M_plan.transpose() * b_plan; 
         
     }
 
