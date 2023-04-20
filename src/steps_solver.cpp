@@ -27,7 +27,7 @@ void feasibility_solver::kinematics_contraints(Eigen::MatrixXd & A_out, Eigen::V
             X_0_step_im1 = refSteps[i - 1];
         }
         const Eigen::Matrix3d R_Theta_i_0 = X_0_step_im1.rotation().transpose();
-        const Eigen::Vector3d offset = R_Theta_i_0 * Eigen::Vector3d{0,l*(feetDistance_ + stepCstrSize_.y()/2),0};
+        const Eigen::Vector3d offset = R_Theta_i_0 * Eigen::Vector3d{0,l*(feetDistance_ + 0*stepCstrSize_.y()/2),0};
 
         Rectangle Kinematic_Rectangle = Rectangle(theta_i, stepCstrSize_, offset);
 
