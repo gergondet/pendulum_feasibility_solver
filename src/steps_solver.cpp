@@ -5,7 +5,7 @@ void feasibility_solver::kinematics_contraints(Eigen::MatrixXd & A_out, Eigen::V
 {
     const int N_variables = static_cast<int>(A_out.cols());
     const int N_slack = static_cast<int>(N_.rows());
-    const int n_steps = (N_variables - N_slack)/2;
+    const int n_steps = static_cast<int>( static_cast<double>(N_variables - N_slack)/2 );
     // const int n_steps = 1;
 
     assert(n_steps > 0);
@@ -18,7 +18,7 @@ void feasibility_solver::kinematics_contraints(Eigen::MatrixXd & A_out, Eigen::V
     double l = 1;
     if(supportFoot_ == "LeftFoot"){l*=-1;}
     int N_footsteps_kin_cstr = 0;
-    for(int i = 0; i < n_steps; i++)
+    for(int i = n_steps; i < n_steps; i++)
     {
         const double theta_i = rpyFromMat(refSteps[i].rotation()).z();
         sva::PTransformd X_0_step_im1 = X_0_SupportFoot_;
@@ -231,7 +231,7 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     b_ineq <<    (b_f * exp(eta_ * t_) - (N_ * dcm_) ) , b_kin ;
     
     // Slack Variables
-    A_ineq.block(0,2 * n_steps , N_slack , N_slack ) = Eigen::Matrix4d::Identity() ;
+    // A_ineq.block(0,2 * n_steps , N_slack , N_slack ) = Eigen::Matrix4d::Identity() ;
 
     const int NineqCstr = static_cast<int>(A_ineq.rows()); 
 
@@ -274,21 +274,23 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     // std::cout << "N(i) " << std::endl << N_.row(i) << std::endl;
 
     Eigen::MatrixXd Q_cost = betaSteps * ( M_steps.transpose() * M_steps) + ( M_slack.transpose() * M_slack) ;
+    // Q_cost += 1e6 * (- A_f *  exp(eta_ * t_)).transpose() * (- A_f *  exp(eta_ * t_));
     Eigen::VectorXd c_cost = betaSteps * (-M_steps.transpose() * b_steps) + (-M_slack.transpose() * b_slack) ;
+    // c_cost += 1e6 * (A_f *  exp(eta_ * t_)).transpose() * (b_f * exp(eta_ * t_) - (N_ * dcm_) );
 
     Eigen::QuadProgDense QP;
     // QP.tolerance(5e-4);
     QP.problem(N_variables, NeqCstr,NineqCstr);
     bool QPsuccess = QP.solve(Q_cost, c_cost, A_eq, b_eq, A_ineq, b_ineq);
 
-    if(!QPsuccess)
-    {
-        std::cout << "[Pendulum feasibility solver][Steps solver] " << "[iter : " << Niter_ <<"] QP Failed, lowering slack" << std::endl;
-        M_slack.block(0,2 * n_steps,N_slack,N_slack) = 1e0 * Eigen::MatrixXd::Identity(N_slack,N_slack);
-        Q_cost = betaSteps * ( M_steps.transpose() * M_steps) + ( M_slack.transpose() * M_slack) ;
-        c_cost = betaSteps * (-M_steps.transpose() * b_steps) + (-M_slack.transpose() * b_slack) ;
-        QPsuccess = QP.solve(Q_cost, c_cost, A_eq, b_eq, A_ineq, b_ineq);
-    }
+    // if(!QPsuccess)
+    // {
+    //     std::cout << "[Pendulum feasibility solver][Steps solver] " << "[iter : " << Niter_ <<"] QP Failed, lowering slack" << std::endl;
+    //     M_slack.block(0,2 * n_steps,N_slack,N_slack) = 1e0 * Eigen::MatrixXd::Identity(N_slack,N_slack);
+    //     Q_cost = betaSteps * ( M_steps.transpose() * M_steps) + ( M_slack.transpose() * M_slack) ;
+    //     c_cost = betaSteps * (-M_steps.transpose() * b_steps) + (-M_slack.transpose() * b_slack) ;
+    //     QPsuccess = QP.solve(Q_cost, c_cost, A_eq, b_eq, A_ineq, b_ineq);
+    // }
 
     if(!QPsuccess)
     {
