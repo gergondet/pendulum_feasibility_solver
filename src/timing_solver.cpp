@@ -336,8 +336,8 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
         Eigen::VectorXd b_plan = Eigen::VectorXd::Zero(M_plan.rows());
         M_plan(0,(i) * (N_ds_ + 1)) = 1;
         M_plan(0,(i + 1) * (N_ds_ + 1)) = -1;
-        M_plan(1,(N_ds_ + 1) * i + N_ds_) = -1;
-        M_plan(1,(N_ds_ + 1) * i) = 1;
+        M_plan(1,(N_ds_ + 1) * i + N_ds_) = -10;
+        M_plan(1,(N_ds_ + 1) * i) = 10;
         const double steps_error = (optimalSteps_[i].translation() - refSteps_[i].translation()).norm();  
         Q_cost += 5e0 * steps_error * M_plan .transpose() * M_plan;
         c_cost += 5e0 * steps_error * -M_plan.transpose() * b_plan; 
