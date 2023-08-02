@@ -84,11 +84,13 @@ bool feasibility_solver::solve(double t,double t_lift,
         if(i != 0)
         {
             t_im1 = optimalStepsTimings_[i-1];
+            double tds_i = i < optimalDoubleSupportDuration_.size() ? optimalDoubleSupportDuration_[i]
+                                                                    : optimalDoubleSupportDuration_.back();
             for (int j = 0 ; j <= (i != N_steps ? N_ds_ : N_tdsLast - 1 )  ; j ++)
             {
                 
                 double alpha_j = static_cast<double>(j)/static_cast<double>(N_ds_);
-                xTimings_( (N_ds_ + 1) * i + j) = exp(-eta_ * ( t_im1 + alpha_j * (optimalDoubleSupportDuration_[i])) );
+                xTimings_( (N_ds_ + 1) * i + j) = exp(-eta_ * ( t_im1 + alpha_j * tds_i) );
 
             }
         }
