@@ -225,9 +225,11 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
     b_ineq << b_f * exp(eta_ * t_) - (N_ * dcm_ ) , b_Tsteps;
     const int NineqCstr = static_cast<int>(A_ineq.rows()); 
 
-    //Slack Variables
-    A_ineq.block(0,N_variables - N_slack , N_slack , N_slack ) = Eigen::Matrix4d::Identity();
-
+    // Slack Variables
+    if(Niter_ != 0)
+    {
+        A_ineq.block(0,N_variables - N_slack , N_slack , N_slack ) = Eigen::Matrix4d::Identity();
+    }
     // std::cout << A_f << std::endl;
 
     Eigen::MatrixXd A_eq = Eigen::MatrixXd::Zero(1 , N_variables);
@@ -328,7 +330,7 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
     
     Eigen::MatrixXd Q_cost = betaTsteps * M_timings.transpose() * M_timings;
     Q_cost += 5e0 * M_deltaTs.transpose() * M_deltaTs;
-    Q_cost += 1e5 * M_slack.transpose() * M_slack;
+    Q_cost += 1e7 * M_slack.transpose() * M_slack;
     Eigen::VectorXd c_cost = betaTsteps * (-M_timings.transpose() * b_timings) ;
     c_cost += 5e0 * -M_deltaTs.transpose() * b_deltaTs;
 
