@@ -231,7 +231,7 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     b_ineq <<    (b_f * exp(eta_ * t_) - (N_ * dcm_) ) , b_kin ;
     
     // Slack Variables
-    // A_ineq.block(0,2 * n_steps , N_slack , N_slack ) = Eigen::Matrix4d::Identity() ;
+    A_ineq.block(0,2 * n_steps , N_slack , N_slack ) = Eigen::Matrix4d::Identity() ;
 
     const int NineqCstr = static_cast<int>(A_ineq.rows()); 
 
@@ -250,7 +250,7 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     }
     
     Eigen::MatrixXd M_slack = Eigen::MatrixXd::Zero(N_slack,N_variables);
-    M_slack.block(0,2 * n_steps,N_slack,N_slack) = 1e2 * Eigen::MatrixXd::Identity(N_slack,N_slack);
+    M_slack.block(0,2 * n_steps,N_slack,N_slack) = Eigen::MatrixXd::Identity(N_slack,N_slack);
     const Eigen::VectorXd b_slack = Eigen::VectorXd::Zero(M_slack.rows());
 
     Eigen::VectorXd x_init = Eigen::VectorXd::Zero(N_variables);
@@ -264,18 +264,20 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     
     for (int i = 0 ; i < 4 ; i++)
     {
-        if(feasibilityOffsetInit(i) < dcm_pose(i))
+        if(feasibilityOffsetInit(i) < dcm_pose(i) - 1e5)
         {
             std::cout << "[Pendulum feasibility solver][Steps solver] " << "[iter : " << Niter_ <<"] broken cstr on " << i << std::endl;
+            std::cout << "offset delta " << feasibilityOffsetInit(i) - dcm_pose(i) << std::endl;
+
         }
     }
     // std::cout << "A_ineq" << std::endl << A_ineq.block(0,0,4,N_variables) << std::endl;
     // std::cout << "b_ineq" << std::endl << b_ineq << std::endl;
     // std::cout << "N(i) " << std::endl << N_.row(i) << std::endl;
 
-    Eigen::MatrixXd Q_cost = betaSteps * ( M_steps.transpose() * M_steps) + ( M_slack.transpose() * M_slack) ;
+    Eigen::MatrixXd Q_cost = betaSteps * ( M_steps.transpose() * M_steps) + 1e7 * ( M_slack.transpose() * M_slack) ;
     // Q_cost += 1e6 * (- A_f *  exp(eta_ * t_)).transpose() * (- A_f *  exp(eta_ * t_));
-    Eigen::VectorXd c_cost = betaSteps * (-M_steps.transpose() * b_steps) + (-M_slack.transpose() * b_slack) ;
+    Eigen::VectorXd c_cost = betaSteps * (-M_steps.transpose() * b_steps) ;
     // c_cost += 1e6 * (A_f *  exp(eta_ * t_)).transpose() * (b_f * exp(eta_ * t_) - (N_ * dcm_) );
 
     Eigen::QuadProgDense QP;

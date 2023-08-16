@@ -102,6 +102,8 @@ bool feasibility_solver::solve(double t,double t_lift,
 
     bool ret = true;
     Niter_ = 0;
+    ret = ret && solve_timings(refTimings_,refTds_);
+    Niter_ += 1;
     ret = ret && solve_steps(refSteps_);
     Niter_ += 1;
     ret = ret && solve_timings(refTimings_,refTds_);
