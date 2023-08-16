@@ -18,7 +18,7 @@ void feasibility_solver::kinematics_contraints(Eigen::MatrixXd & A_out, Eigen::V
     double l = 1;
     if(supportFoot_ == "LeftFoot"){l*=-1;}
     int N_footsteps_kin_cstr = 0;
-    for(int i = n_steps; i < n_steps; i++)
+    for(int i = 0; i < n_steps; i++)
     {
         const double theta_i = rpyFromMat(refSteps[i].rotation()).z();
         sva::PTransformd X_0_step_im1 = X_0_SupportFoot_;
