@@ -67,7 +67,7 @@ bool feasibility_solver::solve(double t,double t_lift,
         double alpha_j = static_cast<double>(j)/static_cast<double>(N_ds_);
         if(doubleSupport_)
         {
-            xTimings_(j) = exp(-eta_ * ( t_ + alpha_j * (optimalDoubleSupportDuration_[0] - t_)) );
+            xTimings_(j) = exp(-eta_ * ( t_ + alpha_j * (tds_ref - t_)) );
         }
         else
         {
@@ -88,7 +88,7 @@ bool feasibility_solver::solve(double t,double t_lift,
             {
                 
                 double alpha_j = static_cast<double>(j)/static_cast<double>(N_ds_);
-                xTimings_( (N_ds_ + 1) * i + j) = exp(-eta_ * ( t_im1 + alpha_j * (optimalDoubleSupportDuration_[i])) );
+                xTimings_( (N_ds_ + 1) * i + j) = exp(-eta_ * ( t_im1 + alpha_j * tds_ref) );
 
             }
         }
