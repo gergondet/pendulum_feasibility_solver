@@ -125,7 +125,7 @@ class feasibility_solver
         Eigen::Vector2d stepCstrSize_ = Eigen::Vector2d::Zero(); //size of the kinematics cstr rectangle
         Eigen::Vector2d zmpRange_ = Eigen::Vector2d::Zero(); //size of the zmp cstr rectangle
         double betaSteps = 1;
-        double betaTsteps = 1;
+        double betaTsteps = 10;
 
         double refTds_ = 0.2;
         bool doubleSupport_ = true;
