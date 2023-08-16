@@ -301,7 +301,9 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
 
     //Keeping slack only on broken cstr
     Eigen::VectorXd x_init = Eigen::VectorXd::Zero(N_variables);
-    x_init.segment(0,N_variables - N_slack) = b_timings;
+    // x_init.segment(0,N_variables - N_slack) = b_timings;
+    x_init.segment(0,N_variables - N_slack) = xTimings_.segment(0,N_variables - N_slack);
+
 
     Eigen::Vector4d feasibilityOffsetInit = exp(eta_ * t_) * ( A_f * x_init + b_f);
     Eigen::Vector4d dcm_pose  = N_ * dcm_;
@@ -311,9 +313,10 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
     // bool ok = true;
     for (int i = 0 ; i < 4 ; i++)
     {
-        if(feasibilityOffsetInit(i) < dcm_pose(i))
+        if(feasibilityOffsetInit(i) < dcm_pose(i) - 1e-5)
         {
             std::cout << "[Pendulum feasibility solver][Timing  solver] " << "[iter : " << Niter_ <<"] broken cstr on " << i << std::endl;
+            std::cout << "offset delta " << feasibilityOffsetInit(i) - dcm_pose(i) << std::endl;
             // ok = false;
         }
     }
@@ -370,6 +373,18 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
     // std::cout << "[Pendulum feasibility solver][Timing solver] output offset " << std::endl << feasibilityOffset << std::endl;
     Polygon feasibilityPolygon = Polygon(N_,feasibilityOffset);
     feasibilityRegion_ = feasibilityPolygon.Get_Polygone_Corners();
+
+    for (int i = 0 ; i < 4 ; i++)
+    {
+        if(feasibilityOffset(i) < dcm_pose(i) - 1e-5)
+        {
+            std::cout << "[Pendulum feasibility solver][Timing  solver] " << "[iter : " << Niter_ <<"] QP output has broken cstr on " << i << std::endl;
+            // std::cout << "offset delta " << feasibilityOffset(i) - dcm_pose(i) << std::endl;
+            std::cout << "slack: " << QP.result().segment(N_variables - N_slack + i,1) << std::endl;
+
+            // ok = false;
+        }
+    }
 
     // std::cout << "sol " << Niter_ << std::endl;
     // for (int i = 0 ; i < N_variables - N_slack ; i++)

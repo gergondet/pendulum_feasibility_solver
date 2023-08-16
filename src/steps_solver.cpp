@@ -254,7 +254,8 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     const Eigen::VectorXd b_slack = Eigen::VectorXd::Zero(M_slack.rows());
 
     Eigen::VectorXd x_init = Eigen::VectorXd::Zero(N_variables);
-    x_init.segment(0,2*n_steps) = b_steps;
+    // x_init.segment(0,2*n_steps) = b_steps;
+    x_init.segment(0,2*n_steps) = xStep_.segment(0,2*n_steps);
 
     Eigen::Vector4d feasibilityOffsetInit = exp(eta_ * t_) * ( A_f * x_init + b_f);
     Eigen::Vector4d dcm_pose = N_ * dcm_;
@@ -308,10 +309,10 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
 
     for (int i = 0 ; i < 4 ; i++)
     {
-        if(feasibilityOffset(i) < dcm_pose(i))
+        if(feasibilityOffset(i) < dcm_pose(i) - 1e-5)
         {
             std::cout << "[Pendulum feasibility solver][Steps solver] " << "[iter : " << Niter_ <<"] solution broken cstr on " << i << std::endl;
-            std::cout << "Slack Steps: " << solution_.segment(2 * n_steps + i,1) << std::endl;
+            std::cout << "slack : " << solution_.segment(2 * n_steps + i,1) << std::endl;
         }
     }
     Polygon feasibilityPolygon = Polygon(N_,feasibilityOffset);
