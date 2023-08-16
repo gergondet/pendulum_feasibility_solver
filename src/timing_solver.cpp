@@ -334,20 +334,24 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
     Eigen::VectorXd c_cost = betaTsteps * (-M_timings.transpose() * b_timings) ;
     c_cost += 5e0 * -M_deltaTs.transpose() * b_deltaTs;
 
-    for (int i = 0 ; i < N_timings ; i++)
+    if(Niter_ <= 2)
     {
+        for (int i = 0 ; i < N_timings ; i++)
+        {
 
-        Eigen::MatrixXd M_plan = Eigen::MatrixXd::Zero(2,N_variables);
-        Eigen::VectorXd b_plan = Eigen::VectorXd::Zero(M_plan.rows());
-        M_plan(0,(i) * (N_ds_ + 1)) = 1;
-        M_plan(0,(i + 1) * (N_ds_ + 1)) = -1;
-        M_plan(1,(N_ds_ + 1) * i + N_ds_) = -10;
-        M_plan(1,(N_ds_ + 1) * i) = 10;
-        const double steps_error = (optimalSteps_[i].translation() - refSteps_[i].translation()).norm();  
-        Q_cost += 5e0 * steps_error * M_plan .transpose() * M_plan;
-        c_cost += 5e0 * steps_error * -M_plan.transpose() * b_plan; 
-        
+            Eigen::MatrixXd M_plan = Eigen::MatrixXd::Zero(2,N_variables);
+            Eigen::VectorXd b_plan = Eigen::VectorXd::Zero(M_plan.rows());
+            M_plan(0,(i) * (N_ds_ + 1)) = 1;
+            M_plan(0,(i + 1) * (N_ds_ + 1)) = -1;
+            M_plan(1,(N_ds_ + 1) * i + N_ds_) = -10;
+            M_plan(1,(N_ds_ + 1) * i) = 10;
+            const double steps_error = (optimalSteps_[i].translation() - refSteps_[i].translation()).norm();  
+            Q_cost += 5e0 * steps_error * M_plan .transpose() * M_plan;
+            c_cost += 5e0 * steps_error * -M_plan.transpose() * b_plan; 
+            
+        }
     }
+
 
 
     Eigen::QuadProgDense QP;
