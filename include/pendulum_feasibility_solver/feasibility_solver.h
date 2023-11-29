@@ -41,7 +41,7 @@ class feasibility_solver
          */
         bool solve(double t,double t_lift,bool dbl_supp,const Eigen::Vector2d & dcm, const Eigen::Vector2d & zmp , const std::string & supportFoot, const sva::PTransformd & X_0_supportFoot , const sva::PTransformd & X_0_swingFoot,
                    double tds_ref , std::vector<sva::PTransformd> steps_ref,
-                   std::vector<double> timings_refs);
+                   std::vector<double> timings_refs,const Eigen::Vector2d & gamma = Eigen::Vector2d::Zero(), const double kappa = 1.);
         
         bool solve_timings(const std::vector<double> & refTimings, const double & refTds);
 
@@ -159,6 +159,9 @@ class feasibility_solver
 
         Eigen::VectorXd xStep_; //current decision variables for step QP
         Eigen::VectorXd xTimings_; //current decision variables for timing QP
+
+        double kappa_ = 1;
+        Eigen::Vector2d gamma_ = Eigen::Vector2d::Zero();
 
 
 

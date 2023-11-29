@@ -9,11 +9,13 @@ bool feasibility_solver::solve(double t,double t_lift,
                     const Eigen::Vector2d & dcm, const Eigen::Vector2d & zmp , 
                     const std::string & supportFoot, const sva::PTransformd & X_0_supportFoot , const sva::PTransformd & X_0_swingFoot,
                     double tds_ref , std::vector<sva::PTransformd> steps_ref,
-                    std::vector<double> timings_refs)
+                    std::vector<double> timings_refs,const Eigen::Vector2d & gamma, const double kappa)
 {
 
     assert (steps_ref.size() == timings_refs.size());
-
+    assert(kappa > 0);
+    kappa_ = kappa;
+    gamma_ = gamma;
     doubleSupport_ = dbl_supp;
     tLift_ = t_lift; 
     refSteps_ = steps_ref;
@@ -99,6 +101,14 @@ bool feasibility_solver::solve(double t,double t_lift,
     const double l = (X_0_supportFoot.translation() - X_0_SwingFoot_.translation()).norm();
 
     offsetCstrZMPDblInit_ << zmpRange_.x()/2,  l/2, zmpRange_.x()/2,  l/2;
+
+    if(kappa_ >= 0.2)
+    {
+        offsetCstrZMP_ *= 1/kappa_;
+        offsetCstrZMPDblInit_ *= 1/kappa_;
+    }
+    offsetCstrZMP_ -= N_* gamma_;
+    offsetCstrZMPDblInit_ -= N_* gamma_;
 
     bool ret = true;
     Niter_ = 0;
