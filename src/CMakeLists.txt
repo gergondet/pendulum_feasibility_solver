@@ -12,7 +12,6 @@ set(HDR
 
 add_library(${PROJECT_NAME} SHARED ${SRC} ${HDR})
 
-# target_link_libraries(${PROJECT_NAME} ScsEigen::ScsEigen)
 target_link_libraries(${PROJECT_NAME} PUBLIC SpaceVecAlg::SpaceVecAlg eigen-quadprog::eigen-quadprog)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
@@ -35,4 +34,4 @@ install(TARGETS ${PROJECT_NAME}
   ARCHIVE DESTINATION lib)
 
 install(
-DIRECTORY ${CMAKE_SOURCE_DIR}/include/ DESTINATION include)
+  DIRECTORY ${CMAKE_SOURCE_DIR}/include/ DESTINATION include FILES_MATCHING PATTERN "*.h")

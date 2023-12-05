@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.10)
 
 set(CXX_DISABLE_WERROR 1)
 set(CMAKE_CXX_STANDARD 17)
@@ -8,18 +8,16 @@ set(PROJECT_NAME pendulum_feasibility_solver)
 set(PROJECT_VERSION 0.1.0)
 set(PROJECT_DESCRIPTION "")
 set(PROJECT_URL "")
-
-# jrl-cmakemodules minimal settings
 set(PROJECT_USE_CMAKE_EXPORT TRUE)
-set(CXX_DISABLE_WERROR 1) # FIXME fix errors and re-enable
+set(PROJECT_GENERATED_HEADERS_SKIP_CONFIG ON)
+set(PROJECT_GENERATED_HEADERS_SKIP_DEPRECATED ON)
+set(PROJECT_GENERATED_HEADERS_SKIP_WARNING ON)
 
 include(cmake/base.cmake)
 
 project(${PROJECT_NAME} LANGUAGES CXX VERSION ${PROJECT_VERSION})
 
-# find_package(ScsEigen REQUIRED)
-find_package(SpaceVecAlg REQUIRED)
-find_package(eigen-quadprog REQUIRED)
-
+add_project_dependency(SpaceVecAlg REQUIRED)
+add_project_dependency(eigen-quadprog REQUIRED)
 
 add_subdirectory(src)
