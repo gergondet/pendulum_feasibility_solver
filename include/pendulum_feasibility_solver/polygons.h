@@ -1,7 +1,7 @@
 #pragma once
+#include <SpaceVecAlg/SpaceVecAlg>
 #include <eigen3/Eigen/Dense>
 #include <iostream>
-#include <SpaceVecAlg/SpaceVecAlg>
 
 inline Eigen::Vector3d rpyFromMat(const Eigen::Matrix3d & E)
 {
@@ -78,34 +78,15 @@ public:
     return corners;
     // return {upper_left_corner,lower_left_corner,lower_right_corner,upper_right_corner};
   }
-  const Eigen::Vector3d & Up_Left_corner() const noexcept
-  {
-    return upper_left_corner;
-  }
-  const Eigen::Vector3d & Up_Right_corner() const noexcept
-  {
-    return upper_right_corner;
-  }
-  const Eigen::Vector3d & Dwn_Right_corner() const noexcept
-  {
-    return lower_right_corner;
-  }
-  const Eigen::Vector3d & Dwn_Left_corner() const noexcept
-  {
-    return lower_left_corner;
-  }
+  const Eigen::Vector3d & Up_Left_corner() const noexcept { return upper_left_corner; }
+  const Eigen::Vector3d & Up_Right_corner() const noexcept { return upper_right_corner; }
+  const Eigen::Vector3d & Dwn_Right_corner() const noexcept { return lower_right_corner; }
+  const Eigen::Vector3d & Dwn_Left_corner() const noexcept { return lower_left_corner; }
 
-  double get_yaw()
-  {
-    return _angle;
-  }
-  Eigen::Vector3d get_center()
-  {
-    return _center;
-  }
+  double get_yaw() { return _angle; }
+  Eigen::Vector3d get_center() { return _center; }
 
 private:
-
   Eigen::Vector3d _center = Eigen::Vector3d::Zero();
   Eigen::Vector3d _size = Eigen::Vector3d::Zero();
   double _angle = 0;
@@ -157,42 +138,24 @@ public:
   void jarvis_march();
   void convex_hull();
 
-  std::vector<Eigen::Vector3d> & Get_Polygone_Corners()
-  {
-    return Polygone_Corners;
-  }
+  std::vector<Eigen::Vector3d> & Get_Polygone_Corners() { return Polygone_Corners; }
 
-  const Eigen::MatrixX2d & normals()
-  {
-    return Polygone_Normals;
-  }
+  const Eigen::MatrixX2d & normals() { return Polygone_Normals; }
 
-  const Eigen::VectorXd & offsets()
-  {
-    return Offset;
-  }
+  const Eigen::VectorXd & offsets() { return Offset; }
 
   Eigen::Vector3d get_center()
   {
     Eigen::Vector3d center = Eigen::Vector3d::Zero();
     double n = static_cast<double>(_Rectangles.size());
-    for (auto & r : _Rectangles)
-    {
-      center += (1/n) * r.get_center();
-    }
+    for(auto & r : _Rectangles) { center += (1 / n) * r.get_center(); }
     return center;
   }
 
   Rectangle & get_Rectangle(int indx)
   {
-    if(indx < static_cast<int>(_Rectangles.size()) - 1)
-    {
-      return _Rectangles[indx];
-    }
-    else
-    {
-      return _Rectangles[0];
-    }
+    if(indx < static_cast<int>(_Rectangles.size()) - 1) { return _Rectangles[indx]; }
+    else { return _Rectangles[0]; }
   }
 
 private:
@@ -208,10 +171,7 @@ private:
       // jarvis_march();
       convex_hull();
     }
-    else
-    {
-      Polygone_Corners = _Rectangles[0].Get_corners();
-    }
+    else { Polygone_Corners = _Rectangles[0].Get_corners(); }
     Polygone_Normals.resize(Polygone_Corners.size(), 2);
     Polygone_Edges_Center.resize(Polygone_Corners.size(), 2);
     Polygone_Vertices.resize(Polygone_Corners.size(), 2);
@@ -231,24 +191,23 @@ private:
       Polygone_Edges_Center(c, 0) = (((point_2 + point_1) / 2)).x();
       Polygone_Edges_Center(c, 1) = (((point_2 + point_1) / 2)).y();
 
-      R_Vertices_0 << Polygone_Normals(c, 0), Polygone_Vertices(c, 0), Polygone_Normals(c, 1),
-          Polygone_Vertices(c, 1);
+      R_Vertices_0 << Polygone_Normals(c, 0), Polygone_Vertices(c, 0), Polygone_Normals(c, 1), Polygone_Vertices(c, 1);
 
       Offset(c) = (R_Vertices_0.transpose() * Polygone_Edges_Center.block(c, 0, 1, 2).transpose())(0);
     }
   }
-  
+
   void cstr_to_polygone()
   {
 
     std::vector<Eigen::Index> vertices_indx;
-    for(Eigen::Index i = 0 ; i < Polygone_Normals.rows() ; i++)
+    for(Eigen::Index i = 0; i < Polygone_Normals.rows(); i++)
     {
       Eigen::Index end_indx = (i + 1) % static_cast<Eigen::Index>(Polygone_Normals.rows());
-      Eigen::RowVector2d ni = Polygone_Normals.block(i,0,1,2).normalized();
-      Eigen::RowVector2d nip1 = Polygone_Normals.block(end_indx,0,1,2).normalized();
+      Eigen::RowVector2d ni = Polygone_Normals.block(i, 0, 1, 2).normalized();
+      Eigen::RowVector2d nip1 = Polygone_Normals.block(end_indx, 0, 1, 2).normalized();
       // mc_rtc::log::info("normal {}\n{}\nnext_normal{}\ndot prod {}",i,ni,nip1,ni.transpose() * nip1);
-      if( std::abs( ni * nip1.transpose() - 1) > 1e-4  )
+      if(std::abs(ni * nip1.transpose() - 1) > 1e-4)
       {
 
         vertices_indx.push_back(i);
@@ -256,14 +215,14 @@ private:
       }
     }
     // mc_rtc::log::info("corner {} selected {}",Polygone_Normals.rows(),normals.size());
-    for(size_t i = 0 ; i < vertices_indx.size() ; i++)
+    for(size_t i = 0; i < vertices_indx.size(); i++)
     {
       Eigen::Index start_indx = vertices_indx[i];
       Eigen::Index end_indx = vertices_indx[(i + 1) % static_cast<Eigen::Index>(vertices_indx.size())];
       Eigen::Matrix2d R = Eigen::Matrix2d::Zero();
-      Eigen::Vector2d o = Eigen::Vector2d::Zero(); 
-      R.block(0,0,1,2) = Polygone_Normals.block(start_indx,0,1,2);
-      R.block(1,0,1,2) = Polygone_Normals.block(end_indx,0,1,2);
+      Eigen::Vector2d o = Eigen::Vector2d::Zero();
+      R.block(0, 0, 1, 2) = Polygone_Normals.block(start_indx, 0, 1, 2);
+      R.block(1, 0, 1, 2) = Polygone_Normals.block(end_indx, 0, 1, 2);
       o.x() = Offset[start_indx];
       o.y() = Offset[end_indx];
       if(R.determinant() != 0)
@@ -271,12 +230,9 @@ private:
         Eigen::Vector2d p = R.inverse() * o;
         // mc_rtc::log::info("start {} ; end {} point {}",i,end_indx,p);
         // mc_rtc::log::info("R {}\no {}",R,o);
-  
-        Polygone_Corners.push_back(Eigen::Vector3d{p.x(),p.y(),0});
+
+        Polygone_Corners.push_back(Eigen::Vector3d{p.x(), p.y(), 0});
       }
-      
-      
-    
     }
   }
 

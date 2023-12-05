@@ -23,4 +23,3 @@ find_package(eigen-quadprog REQUIRED)
 
 
 add_subdirectory(src)
-

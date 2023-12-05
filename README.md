@@ -15,5 +15,5 @@ In repo directory
 ```bash
 mkdir build && cd build
 cmake ..
-make 
+make
 sudo make install

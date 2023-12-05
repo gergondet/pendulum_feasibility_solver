@@ -21,10 +21,7 @@ void Polygon::convex_hull()
   for(size_t r = 0; r < _Rectangles.size(); r++)
   {
     std::vector<Eigen::Vector3d> rect_corners = _Rectangles[r].Get_corners();
-    for(size_t i = 0; i < rect_corners.size(); i++)
-    {
-      bg::append(p, point(rect_corners[i].x(), rect_corners[i].y()));
-    }
+    for(size_t i = 0; i < rect_corners.size(); i++) { bg::append(p, point(rect_corners[i].x(), rect_corners[i].y())); }
   }
   polygon hull;
   bg::convex_hull(p, hull);
@@ -51,24 +48,15 @@ void Polygon::jarvis_march()
     q = (l + 1) % _corners.size();
     for(size_t i = 0; i < _corners.size(); i++)
     {
-      if(i == l)
-      {
-        continue;
-      }
+      if(i == l) { continue; }
       const Eigen::Vector3d & v_q{_corners[q].x(), _corners[q].y(), 0};
       const Eigen::Vector3d & v_l{_corners[l].x(), _corners[l].y(), 0};
       const Eigen::Vector3d & v_i{_corners[i].x(), _corners[i].y(), 0};
       double d = ((v_q - v_l).cross(v_i - v_l)).z();
-      if(d > 0 || (d == 0 && (v_i - v_l).norm() > (v_q - v_l).norm()))
-      {
-        q = i;
-      }
+      if(d > 0 || (d == 0 && (v_i - v_l).norm() > (v_q - v_l).norm())) { q = i; }
     }
     l = q;
-    if(l == index)
-    {
-      break;
-    }
+    if(l == index) { break; }
     Polygone_Corners.push_back(_corners[q]);
   }
 }

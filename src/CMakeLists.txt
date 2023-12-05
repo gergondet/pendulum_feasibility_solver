@@ -2,7 +2,7 @@ set(SRC
   feasibility_solver.cpp
   timing_solver.cpp
   steps_solver.cpp
-  polygons.cpp  
+  polygons.cpp
 )
 
 set(HDR
@@ -36,4 +36,3 @@ install(TARGETS ${PROJECT_NAME}
 
 install(
 DIRECTORY ${CMAKE_SOURCE_DIR}/include/ DESTINATION include)
-
