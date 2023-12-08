@@ -11,8 +11,8 @@ bool feasibility_solver::solve(double t,
                                const sva::PTransformd & X_0_supportFoot,
                                const sva::PTransformd & X_0_swingFoot,
                                double tds_ref,
-                               std::vector<sva::PTransformd> steps_ref,
-                               std::vector<double> timings_refs,
+                               const std::vector<sva::PTransformd> & steps_ref,
+                               const std::vector<double> & timings_refs,
                                const Eigen::Vector2d & gamma,
                                const double kappa)
 {
@@ -40,8 +40,6 @@ bool feasibility_solver::solve(double t,
 
   Eigen::VectorXd Tds = Eigen::VectorXd::Ones(refTimings_.size()) * refTds_;
   Eigen::VectorXd Tds_min = Eigen::VectorXd::Ones(refTimings_.size()) * (t_s_range_ - t_ss_range_).x();
-  refDoubleSupportDuration_ = std::vector<double>(Tds.data(), Tds.data() + Tds.rows());
-  // optimalDoubleSupportDuration_ = std::vector<double>(Tds_min.data(), Tds_min.data() + Tds_min.rows() );
   optimalDoubleSupportDuration_ = std::vector<double>(Tds.data(), Tds.data() + Tds.rows());
   // optimalStepsTimings_.clear();
   // for(int i = 0 ; i < N_timings ; i++)

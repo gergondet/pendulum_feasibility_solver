@@ -14,11 +14,11 @@ public:
 
   void configure(const double eta,
                  const double delta,
-                 const Eigen::Vector2d t_ds_range,
-                 const Eigen::Vector2d t_ss_range,
-                 const Eigen::Vector2d t_s_range,
-                 const Eigen::Vector2d stepCstrSize,
-                 const Eigen::Vector2d zmpRange,
+                 const Eigen::Vector2d & t_ds_range,
+                 const Eigen::Vector2d & t_ss_range,
+                 const Eigen::Vector2d & t_s_range,
+                 const Eigen::Vector2d & stepCstrSize,
+                 const Eigen::Vector2d & zmpRange,
                  const double feetDistance,
                  const int N_ds)
   {
@@ -54,8 +54,8 @@ public:
              const sva::PTransformd & X_0_supportFoot,
              const sva::PTransformd & X_0_swingFoot,
              double tds_ref,
-             std::vector<sva::PTransformd> steps_ref,
-             std::vector<double> timings_refs,
+             const std::vector<sva::PTransformd> & steps_ref,
+             const std::vector<double> & timings_refs,
              const Eigen::Vector2d & gamma = Eigen::Vector2d::Zero(),
              const double kappa = 1.);
 
@@ -159,7 +159,6 @@ private:
 
   std::vector<sva::PTransformd> refSteps_;
   std::vector<double> refTimings_;
-  std::vector<double> refDoubleSupportDuration_;
 
   std::vector<Eigen::Vector3d> feasibilityRegion_;
 
