@@ -3,8 +3,8 @@
 
 void feasibility_solver::timings_constraints(Eigen::MatrixXd & A_out, Eigen::VectorXd & b_out, const int NStepsTimings)
 {
-  const int NVariables = static_cast<int>(A_out.cols());
-  const int N_mu = NVariables - static_cast<int>(N_.rows()); // N var minus the slack variables
+  const Eigen::Index NVariables = A_out.cols();
+  const Eigen::Index N_mu = NVariables - N_.rows(); // N var minus the slack variables
 
   const double mu_ss_max = exp(-eta_ * t_ss_range_.y());
   const double mu_ss_min = exp(-eta_ * t_ss_range_.x());
@@ -15,28 +15,31 @@ void feasibility_solver::timings_constraints(Eigen::MatrixXd & A_out, Eigen::Vec
   const double mu_s_max = exp(-eta_ * t_s_range_.y());
   const double mu_s_min = exp(-eta_ * t_s_range_.x());
 
-  std::vector<Eigen::MatrixXd> A_vec;
-  std::vector<Eigen::VectorXd> b_vec;
-  int N_cstr = 0;
-  // All mu must be decreasing in the horizon
-  Eigen::MatrixXd A_decrease = Eigen::MatrixXd::Zero(N_mu, NVariables);
-  A_decrease.block(0, 0, N_mu, N_mu) = Eigen::MatrixXd::Identity(N_mu, N_mu);
-  A_decrease.block(1, 0, N_mu - 1, N_mu - 1).diagonal() = -Eigen::VectorXd::Ones(N_mu - 1);
-  A_decrease(1, 0) *= exp(-eta_ * delta_);
-  A_vec.push_back(A_decrease.block(1, 0, N_mu - 1, NVariables));
-  b_vec.push_back(Eigen::VectorXd::Zero(A_vec.back().rows()));
-  N_cstr += static_cast<int>(A_vec.back().rows());
+  // Number of constraints:
+  // - mu must decrease over the horizon (N_mu - 1 constraints)
+  // - Step must be bounded and Sg supp must be bounded (5 * NStepsTimings constraints)
+  // - Mu must be positive (N_mu constraints)
+  const Eigen::Index N_cstr = (N_mu - 1) + Eigen::Index(5) * NStepsTimings + N_mu;
 
-  for(int i = 0; i < NStepsTimings; i++)
+  // Resize and reset A_out and b_out so they have the expected size
+  A_out.setZero(N_cstr, NVariables);
+  b_out.setZero(A_out.rows());
+
+  // All mu must be decreasing in the horizon
+  A_out.block(0, 1, N_mu - 1, N_mu - 1).diagonal().setConstant(1.0);
+  A_out.block(0, 0, N_mu - 1, N_mu - 1).diagonal().setConstant(-1.0);
+  A_out(0, 0) *= exp(-eta_ * delta_);
+
+  Eigen::Index cstrRow = N_mu - 1;
+  for(Eigen::Index i = 0; i < NStepsTimings; ++i)
   {
-    Eigen::MatrixXd A_min = Eigen::MatrixXd::Zero(3, NVariables);
     // Step must be bounded
     // Sg supp must be bounded
-    Eigen::VectorXd b_min = Eigen::VectorXd::Zero(A_min.rows());
-
-    Eigen::MatrixXd A_max = Eigen::MatrixXd::Zero(2, NVariables);
-    Eigen::VectorXd b_max = Eigen::VectorXd::Zero(A_max.rows());
-
+    auto A_min = A_out.middleRows(cstrRow, 3);
+    auto b_min = b_out.segment(cstrRow, 3);
+    auto A_max = A_out.middleRows(cstrRow + 3, 2);
+    auto b_max = b_out.segment(cstrRow + 3, 2);
+    cstrRow += 5;
     A_min.block(0, (N_ds_ + 1) * i + N_ds_, 1, 2) = Eigen::RowVector2d{-1, 1};
 
     // Sg supp time cstr
@@ -88,35 +91,10 @@ void feasibility_solver::timings_constraints(Eigen::MatrixXd & A_out, Eigen::Vec
       // Ts <= ts_max
       b_max(0) = -mu_s_max;
     }
-
-    A_vec.push_back(A_min);
-    b_vec.push_back(b_min);
-    N_cstr += static_cast<int>(A_vec.back().rows());
-    A_vec.push_back(A_max);
-    b_vec.push_back(b_max);
-    N_cstr += static_cast<int>(A_vec.back().rows());
   }
-
-  A_out.resize(N_cstr + N_mu, NVariables);
-  A_out.setZero();
-  b_out.resize(A_out.rows());
-  b_out.setZero();
-
-  Eigen::Index indx = 0;
-  for(size_t i = 0; i < A_vec.size(); i++)
-  {
-    const Eigen::MatrixXd & A = A_vec[i];
-    const Eigen::VectorXd & b = b_vec[i];
-    A_out.block(indx, 0, A.rows(), NVariables) = A;
-
-    b_out.segment(indx, b.rows()) = b;
-
-    indx += A.rows();
-  }
-
   // mu must be positive
-  A_out.block(N_cstr, 0, N_mu, N_mu) = -Eigen::MatrixXd::Identity(N_mu, N_mu);
-  b_out.segment(N_cstr, N_mu) = -Eigen::VectorXd::Ones(N_mu) * exp(-eta_ * 10);
+  A_out.bottomRows(N_mu).diagonal().setConstant(-1.0);
+  b_out.tail(N_mu).setConstant(-exp(-eta_ * 10));
 }
 
 void feasibility_solver::build_time_feasibility_matrix(Eigen::MatrixXd & A_f,
