@@ -21,3 +21,6 @@ add_project_dependency(SpaceVecAlg REQUIRED)
 add_project_dependency(eigen-quadprog REQUIRED)
 
 add_subdirectory(src)
+if(BUILD_TESTING)
+  add_subdirectory(tests)
+endif()
