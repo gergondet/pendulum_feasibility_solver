@@ -4,9 +4,10 @@
 
 extern std::string bench_inputs();
 
+static auto inputs = loadInputs(bench_inputs());
+
 static void BM_FeasibilitySolver(benchmark::State & state)
 {
-  auto inputs = loadInputs(bench_inputs());
   feasibility_solver solver;
   size_t idx = 0;
   for(auto _ : state)
