@@ -1,9 +1,10 @@
 #pragma once
+
 #include <SpaceVecAlg/SpaceVecAlg>
-#include <assert.h>
+
 #include <eigen-quadprog/QuadProg.h>
-#include <eigen-quadprog/eigen_quadprog_api.h>
-#include <eigen3/Eigen/Dense>
+
+#include <cassert>
 #include <iostream>
 
 class feasibility_solver
@@ -173,4 +174,6 @@ private:
 
   double kappa_ = 1;
   Eigen::Vector2d gamma_ = Eigen::Vector2d::Zero();
+
+  Eigen::QuadProgDense qp_solver_;
 };

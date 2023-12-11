@@ -184,7 +184,7 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
   const int NineqCstr = static_cast<int>(A_ineq.rows());
 
   // Slack Variables
-  if(Niter_ != 0) { A_ineq.block(0, N_variables - N_slack, N_slack, N_slack) = Eigen::Matrix4d::Identity(); }
+  if(Niter_ != 0) { A_ineq.block(0, N_variables - N_slack, N_slack, N_slack).setIdentity(); }
   // std::cout << A_f << std::endl;
 
   Eigen::MatrixXd A_eq = Eigen::MatrixXd::Zero(1, N_variables);
@@ -294,11 +294,8 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
     }
   }
 
-  Eigen::QuadProgDense QP;
-  // std::cout << A_ineq << std::endl;
-  // std::cout << b_ineq << std::endl;
-  QP.problem(N_variables, NeqCstr, NineqCstr);
-  bool QPsuccess = QP.solve(Q_cost, c_cost, A_eq, b_eq, A_ineq, b_ineq);
+  qp_solver_.problem(N_variables, NeqCstr, NineqCstr);
+  bool QPsuccess = qp_solver_.solve(Q_cost, c_cost, A_eq, b_eq, A_ineq, b_ineq);
 
   // std::cout << "init " << Niter_ << std::endl;
   // for (int i = 0 ; i < N_variables - N_slack ; i++)
@@ -314,8 +311,8 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
     return true;
   }
 
-  xTimings_ = QP.result().segment(0, N_variables - N_slack);
-  Eigen::Vector4d feasibilityOffset = exp(eta_ * t_) * (A_f * QP.result() + b_f);
+  xTimings_ = qp_solver_.result().segment(0, N_variables - N_slack);
+  Eigen::Vector4d feasibilityOffset = exp(eta_ * t_) * (A_f * qp_solver_.result() + b_f);
   // std::cout << "[Pendulum feasibility solver][Timing solver] output offset " << std::endl << feasibilityOffset <<
   // std::endl;
   Polygon feasibilityPolygon = Polygon(N_, feasibilityOffset);
@@ -328,7 +325,7 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
       std::cout << "[Pendulum feasibility solver][Timing  solver] "
                 << "[iter : " << Niter_ << "] QP output has broken cstr on " << i << std::endl;
       // std::cout << "offset delta " << feasibilityOffset(i) - dcm_pose(i) << std::endl;
-      std::cout << "slack: " << QP.result().segment(N_variables - N_slack + i, 1) << std::endl;
+      std::cout << "slack: " << qp_solver_.result().segment(N_variables - N_slack + i, 1) << std::endl;
 
       // ok = false;
     }

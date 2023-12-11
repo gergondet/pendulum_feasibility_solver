@@ -246,10 +246,8 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
   Eigen::VectorXd c_cost = betaSteps * (-M_steps.transpose() * b_steps);
   // c_cost += 1e6 * (A_f *  exp(eta_ * t_)).transpose() * (b_f * exp(eta_ * t_) - (N_ * dcm_) );
 
-  Eigen::QuadProgDense QP;
-  // QP.tolerance(5e-4);
-  QP.problem(N_variables, NeqCstr, NineqCstr);
-  bool QPsuccess = QP.solve(Q_cost, c_cost, A_eq, b_eq, A_ineq, b_ineq);
+  qp_solver_.problem(N_variables, NeqCstr, NineqCstr);
+  bool QPsuccess = qp_solver_.solve(Q_cost, c_cost, A_eq, b_eq, A_ineq, b_ineq);
 
   // if(!QPsuccess)
   // {
@@ -267,7 +265,7 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
     return false;
   }
 
-  solution_ = QP.result();
+  solution_ = qp_solver_.result();
 
   Eigen::Vector4d feasibilityOffset =
       exp(eta_ * t_) * (A_f.block(0, 0, 4, 2 * n_steps) * solution_.segment(0, 2 * n_steps) + b_f);
