@@ -145,6 +145,9 @@ void feasibility_solver::build_steps_feasibility_matrix(Eigen::MatrixXd & A_f, E
             
         }
     }
+    b_f *= kappa_;
+    b_f -= N_ * gamma_* exp(-eta_ * t_);
+    A_f *= kappa_;
     // std::cout << "A_f" << std::endl << A_f.block(0,0,4,N_variables) << std::endl;
 
 }

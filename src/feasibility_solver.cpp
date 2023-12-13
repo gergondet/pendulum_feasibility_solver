@@ -102,14 +102,6 @@ bool feasibility_solver::solve(double t,double t_lift,
 
     offsetCstrZMPDblInit_ << zmpRange_.x()/2,  l/2, zmpRange_.x()/2,  l/2;
 
-    if(kappa_ >= 0.2)
-    {
-        offsetCstrZMP_ *= 1/kappa_;
-        offsetCstrZMPDblInit_ *= 1/kappa_;
-    }
-    offsetCstrZMP_ -= N_* gamma_;
-    offsetCstrZMPDblInit_ -= N_* gamma_;
-
     bool ret = true;
     Niter_ = 0;
     ret = ret && solve_timings(refTimings_,refTds_);

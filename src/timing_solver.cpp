@@ -194,6 +194,9 @@ void feasibility_solver::build_time_feasibility_matrix(Eigen::MatrixXd & A_f, Ei
             }   
         }
     }
+    b_f *= kappa_;
+    b_f -= N_ * gamma_ * exp(-eta_ * t_);
+    A_f *= kappa_;
 }
 
 bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, const double & refTds)
