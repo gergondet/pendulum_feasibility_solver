@@ -1,8 +1,15 @@
+#define EIGEN_RUNTIME_NO_MALLOC
+#define eigen_assert(x) \
+  if(!(x)) { throw std::runtime_error("Fail: " #x); }
+
 #include "../include/pendulum_feasibility_solver/feasibility_solver.h"
 #include "../include/pendulum_feasibility_solver/polygons.h"
 
-void feasibility_solver::timings_constraints(Eigen::MatrixXd & A_out, Eigen::VectorXd & b_out, const int NStepsTimings)
+void feasibility_solver::timings_constraints(Eigen::Ref<Eigen::MatrixXd> A_out,
+                                             Eigen::Ref<Eigen::VectorXd> b_out,
+                                             const int NStepsTimings)
 {
+  Eigen::internal::set_is_malloc_allowed(false);
   const Eigen::Index NVariables = A_out.cols();
   const Eigen::Index N_mu = NVariables - N_.rows(); // N var minus the slack variables
 
@@ -20,10 +27,12 @@ void feasibility_solver::timings_constraints(Eigen::MatrixXd & A_out, Eigen::Vec
   // - Step must be bounded and Sg supp must be bounded (5 * NStepsTimings constraints)
   // - Mu must be positive (N_mu constraints)
   const Eigen::Index N_cstr = (N_mu - 1) + Eigen::Index(5) * NStepsTimings + N_mu;
+  assert(A_out.rows() == N_cstr && A_out.cols() == NVariables);
+  assert(b_out.rows() == A_out.rows());
 
   // Resize and reset A_out and b_out so they have the expected size
-  A_out.setZero(N_cstr, NVariables);
-  b_out.setZero(A_out.rows());
+  A_out.setZero();
+  b_out.setZero();
 
   // All mu must be decreasing in the horizon
   A_out.block(0, 1, N_mu - 1, N_mu - 1).diagonal().setConstant(1.0);
@@ -95,13 +104,15 @@ void feasibility_solver::timings_constraints(Eigen::MatrixXd & A_out, Eigen::Vec
   // mu must be positive
   A_out.bottomRows(N_mu).diagonal().setConstant(-1.0);
   b_out.tail(N_mu).setConstant(-exp(-eta_ * 10));
+  Eigen::internal::set_is_malloc_allowed(true);
 }
 
-void feasibility_solver::build_time_feasibility_matrix(Eigen::MatrixXd & A_f,
-                                                       Eigen::VectorXd & b_f,
+void feasibility_solver::build_time_feasibility_matrix(Eigen::Ref<Eigen::MatrixXd> A_f,
+                                                       Eigen::Ref<Eigen::VectorXd> b_f,
                                                        const sva::PTransformd & X_0_supp,
                                                        const sva::PTransformd & X_0_swg)
 {
+  Eigen::internal::set_is_malloc_allowed(false);
   const int NStepsTimings = N_steps;
   const int N_slack = static_cast<int>(N_.rows());
   const int N_variables = NStepsTimings * (N_ds_ + 1) + N_tdsLast + N_slack;
@@ -114,8 +125,8 @@ void feasibility_solver::build_time_feasibility_matrix(Eigen::MatrixXd & A_f,
   // sg suport i start at indx (N_ds + 1) * i + N_ds
 
   // DCM must remain inside the feasibility region
-  A_f.resize(N_.rows(), N_variables);
-  b_f.resize(A_f.rows());
+  assert(A_f.rows() == N_.rows() && A_f.cols() == N_variables);
+  assert(b_f.rows() == A_f.rows());
   A_f.setZero();
   b_f.setZero();
   // A_f * x + b + slck >= N * P_u
@@ -141,9 +152,10 @@ void feasibility_solver::build_time_feasibility_matrix(Eigen::MatrixXd & A_f,
     {
       const double alpha_j = static_cast<double>(j + 1) / static_cast<double>(N_ds_ + 1);
 
-      Eigen::Vector4d O_ij = offsetCstrZMP_ + N_ * (alpha_j * xStep_.segment(2 * (i - 1), 2));
+      Eigen::Vector2d xStepI = xStep_.segment(2 * (i - 1), 2);
+      Eigen::Vector4d O_ij = offsetCstrZMP_ + N_ * (alpha_j * xStep_.segment<2>(2 * (i - 1)));
 
-      if(i > 1) { O_ij += N_ * ((1 - alpha_j) * xStep_.segment(2 * (i - 2), 2)); }
+      if(i > 1) { O_ij += N_ * ((1 - alpha_j) * xStep_.segment<2>(2 * (i - 2))); }
       else { O_ij += N_ * ((1 - alpha_j) * P_supportFoot_0); }
 
       A_f.block(0, i * (N_ds_ + 1) + j, 4, 1) += O_ij;
@@ -153,45 +165,55 @@ void feasibility_solver::build_time_feasibility_matrix(Eigen::MatrixXd & A_f,
   b_f *= kappa_;
   b_f -= N_ * gamma_ * exp(-eta_ * t_);
   A_f *= kappa_;
+  Eigen::internal::set_is_malloc_allowed(true);
 }
 
 bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, const double & refTds)
 {
-  const int NStepsTimings = N_steps;
-  const int N_slack = static_cast<int>(N_.rows());
-  const int N_variables = NStepsTimings * (N_ds_ + 1) + N_tdsLast + N_slack;
+  const Eigen::DenseIndex NStepsTimings = N_steps;
+  const Eigen::DenseIndex N_slack = static_cast<int>(N_.rows());
+  const Eigen::DenseIndex N_mu = NStepsTimings * (N_ds_ + 1) + N_tdsLast;
+  const Eigen::DenseIndex N_variables = N_mu + N_slack;
 
   // Variables are organised as such  : timings then slack variables
   // step i occur at indx (N_ds + 1) * i
   // sg suport i start at indx (N_ds + 1) * i + N_ds
 
+  const Eigen::Index N_dcm_cstr = N_.rows();
+  const Eigen::Index N_timings_cstr = (N_mu - 1) + Eigen::Index(5) * NStepsTimings + N_mu;
+  const Eigen::Index N_cstr = N_dcm_cstr + N_timings_cstr;
+  if(A_ineq_buffer_.size() < N_cstr * N_variables) { A_ineq_buffer_.resize(N_cstr * N_variables); }
+  auto A_ineq_ = Eigen::Map<Eigen::MatrixXd>(A_ineq_buffer_.data(), N_cstr, N_variables);
+  if(b_ineq_buffer_.size() < A_ineq_.rows()) { b_ineq_buffer_.resize(A_ineq_.rows()); }
+  auto b_ineq_ = Eigen::Map<Eigen::VectorXd>(b_ineq_buffer_.data(), A_ineq_.rows());
+
   // DCM must remain inside the feasibility region
-  Eigen::MatrixXd A_f = Eigen::MatrixXd::Zero(N_.rows(), N_variables);
-  Eigen::VectorXd b_f = Eigen::VectorXd::Zero(A_f.rows());
+  A_f_.resize(N_.rows(), N_variables);
+  b_f_.resize(A_f_.rows());
   // A_f * x + b + slck >= N * P_u
 
-  build_time_feasibility_matrix(A_f, b_f, X_0_SupportFoot_, X_0_SwingFoot_);
+  build_time_feasibility_matrix(A_f_, b_f_, X_0_SupportFoot_, X_0_SwingFoot_);
+  A_ineq_.topRows(N_dcm_cstr).noalias() = -A_f_ * exp(eta_ * t_);
+  b_ineq_.head(A_f_.rows()).noalias() = b_f_ * exp(eta_ * t_) - N_ * dcm_;
 
   // Steps timings constraints
-  Eigen::MatrixXd A_Tsteps = Eigen::MatrixXd::Zero(0, N_variables);
-  Eigen::VectorXd b_Tsteps = Eigen::VectorXd::Zero(0);
+  auto A_Tsteps = A_ineq_.bottomRows(N_timings_cstr);
+  auto b_Tsteps = b_ineq_.tail(A_Tsteps.rows());
   timings_constraints(A_Tsteps, b_Tsteps, NStepsTimings);
 
-  Eigen::MatrixXd A_ineq = Eigen::MatrixXd::Zero(A_Tsteps.rows() + A_f.rows(), N_variables);
-  Eigen::VectorXd b_ineq = Eigen::VectorXd::Zero(A_ineq.rows());
-  A_ineq << -A_f * exp(eta_ * t_), A_Tsteps;
-  b_ineq << b_f * exp(eta_ * t_) - (N_ * dcm_), b_Tsteps;
-  const int NineqCstr = static_cast<int>(A_ineq.rows());
+  const int NineqCstr = static_cast<int>(A_ineq_.rows());
 
   // Slack Variables
-  if(Niter_ != 0) { A_ineq.block(0, N_variables - N_slack, N_slack, N_slack).setIdentity(); }
-  // std::cout << A_f << std::endl;
+  if(Niter_ != 0) { A_ineq_.block(0, N_variables - N_slack, N_slack, N_slack).setIdentity(); }
 
-  Eigen::MatrixXd A_eq = Eigen::MatrixXd::Zero(1, N_variables);
-  A_eq(0, 0) = 1;
-  Eigen::VectorXd b_eq = Eigen::VectorXd::Zero(A_eq.rows());
-  b_eq(0) = exp(-eta_ * t_);
-  const int NeqCstr = static_cast<int>(A_eq.rows());
+  if(A_eq_buffer_.size() < 1 * N_variables) { A_eq_buffer_.resize(1 * N_variables); }
+  auto A_eq_ = Eigen::Map<Eigen::MatrixXd>(A_eq_buffer_.data(), 1, N_variables);
+  A_eq_.setZero();
+  A_eq_(0, 0) = 1;
+  if(b_eq_buffer_.size() < A_eq_.rows()) { b_eq_buffer_.resize(A_eq_.rows()); }
+  auto b_eq_ = Eigen::Map<Eigen::VectorXd>(b_eq_buffer_.data(), A_eq_.rows());
+  b_eq_(0) = exp(-eta_ * t_);
+  const int NeqCstr = static_cast<int>(A_eq_.rows());
 
   // Cost function
   Eigen::MatrixXd M_deltaTs = Eigen::MatrixXd::Zero(2 * N_timings, N_variables);
@@ -250,7 +272,7 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
   // x_init.segment(0,N_variables - N_slack) = b_timings;
   x_init.segment(0, N_variables - N_slack) = xTimings_.segment(0, N_variables - N_slack);
 
-  Eigen::Vector4d feasibilityOffsetInit = exp(eta_ * t_) * (A_f * x_init + b_f);
+  Eigen::Vector4d feasibilityOffsetInit = exp(eta_ * t_) * (A_f_ * x_init + b_f_);
   Eigen::Vector4d dcm_pose = N_ * dcm_;
 
   // std::cout << "[Pendulum feasibility solver][Timing solver] xStep " << std::endl << xStep_ << std::endl;
@@ -271,11 +293,19 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
   //     return true;
   // }
 
-  Eigen::MatrixXd Q_cost = betaTsteps * M_timings.transpose() * M_timings;
-  Q_cost += 5e0 * M_deltaTs.transpose() * M_deltaTs;
-  Q_cost += 1e7 * M_slack.transpose() * M_slack;
-  Eigen::VectorXd c_cost = betaTsteps * (-M_timings.transpose() * b_timings);
-  c_cost += 5e0 * -M_deltaTs.transpose() * b_deltaTs;
+  if(Q_cost_buffer_.size() < N_variables * N_variables)
+  {
+    Q_cost_buffer_.resize(N_variables * N_variables);
+    c_cost_buffer_.resize(N_variables);
+  }
+  auto Q_cost_ = Eigen::Map<Eigen::MatrixXd>(Q_cost_buffer_.data(), N_variables, N_variables);
+  auto c_cost_ = Eigen::Map<Eigen::VectorXd>(c_cost_buffer_.data(), N_variables);
+
+  Q_cost_ = betaTsteps * M_timings.transpose() * M_timings;
+  Q_cost_ += 5e0 * M_deltaTs.transpose() * M_deltaTs;
+  Q_cost_ += 1e7 * M_slack.transpose() * M_slack;
+  c_cost_ = betaTsteps * (-M_timings.transpose() * b_timings);
+  c_cost_ += 5e0 * -M_deltaTs.transpose() * b_deltaTs;
 
   if(Niter_ <= 2)
   {
@@ -289,13 +319,13 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
       M_plan(1, (N_ds_ + 1) * i + N_ds_) = -10;
       M_plan(1, (N_ds_ + 1) * i) = 10;
       const double steps_error = (optimalSteps_[i].translation() - refSteps_[i].translation()).norm();
-      Q_cost += 5e0 * steps_error * M_plan.transpose() * M_plan;
-      c_cost += 5e0 * steps_error * -M_plan.transpose() * b_plan;
+      Q_cost_ += 5e0 * steps_error * M_plan.transpose() * M_plan;
+      c_cost_ += 5e0 * steps_error * -M_plan.transpose() * b_plan;
     }
   }
 
   qp_solver_.problem(N_variables, NeqCstr, NineqCstr);
-  bool QPsuccess = qp_solver_.solve(Q_cost, c_cost, A_eq, b_eq, A_ineq, b_ineq);
+  bool QPsuccess = qp_solver_.solve(Q_cost_, c_cost_, A_eq_, b_eq_, A_ineq_, b_ineq_);
 
   // std::cout << "init " << Niter_ << std::endl;
   // for (int i = 0 ; i < N_variables - N_slack ; i++)
@@ -312,7 +342,7 @@ bool feasibility_solver::solve_timings(const std::vector<double> & refTimings, c
   }
 
   xTimings_ = qp_solver_.result().segment(0, N_variables - N_slack);
-  Eigen::Vector4d feasibilityOffset = exp(eta_ * t_) * (A_f * qp_solver_.result() + b_f);
+  Eigen::Vector4d feasibilityOffset = exp(eta_ * t_) * (A_f_ * qp_solver_.result() + b_f_);
   // std::cout << "[Pendulum feasibility solver][Timing solver] output offset " << std::endl << feasibilityOffset <<
   // std::endl;
   Polygon feasibilityPolygon = Polygon(N_, feasibilityOffset);

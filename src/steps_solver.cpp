@@ -1,10 +1,15 @@
+#define EIGEN_RUNTIME_NO_MALLOC
+#define eigen_assert(x) \
+  if(!(x)) { throw std::runtime_error("Wrong assertion: " #x); }
+
 #include "../include/pendulum_feasibility_solver/feasibility_solver.h"
 #include "../include/pendulum_feasibility_solver/polygons.h"
 
-void feasibility_solver::kinematics_contraints(Eigen::MatrixXd & A_out,
-                                               Eigen::VectorXd & b_out,
-                                               const std::vector<sva::PTransformd> & refSteps)
+void feasibility_solver::kinematics_constraints(Eigen::Ref<Eigen::MatrixXd> A_out,
+                                                Eigen::Ref<Eigen::VectorXd> b_out,
+                                                const std::vector<sva::PTransformd> & refSteps)
 {
+  // Eigen::internal::set_is_malloc_allowed(false);
   const int N_variables = static_cast<int>(A_out.cols());
   const int N_slack = static_cast<int>(N_.rows());
   const int n_steps = static_cast<int>(static_cast<double>(N_variables - N_slack) / 2);
@@ -57,19 +62,22 @@ void feasibility_solver::kinematics_contraints(Eigen::MatrixXd & A_out,
     cstr_index += static_cast<int>(ineq.rows());
   }
 
-  A_out.resize(N_footsteps_kin_cstr, N_variables);
+  eigen_assert(A_out.rows() == N_footsteps_kin_cstr);
+  eigen_assert(A_out.cols() == N_variables);
+  eigen_assert(b_out.rows() == A_out.rows());
   A_out.setZero();
-  b_out.resize(N_footsteps_kin_cstr);
   b_out.setZero();
-  A_out.block(0, 0, N_footsteps_kin_cstr, 2 * n_steps) = foosteps_kin_cstr * Delta;
+  A_out.block(0, 0, N_footsteps_kin_cstr, Eigen::Index(2) * n_steps) = foosteps_kin_cstr * Delta;
   b_out.segment(0, N_footsteps_kin_cstr) = b_kin_cstr;
+  Eigen::internal::set_is_malloc_allowed(true);
 }
 
-void feasibility_solver::build_steps_feasibility_matrix(Eigen::MatrixXd & A_f,
-                                                        Eigen::VectorXd & b_f,
+void feasibility_solver::build_steps_feasibility_matrix(Eigen::Ref<Eigen::MatrixXd> A_out,
+                                                        Eigen::Ref<Eigen::VectorXd> b_out,
                                                         const sva::PTransformd & X_0_supp,
                                                         const sva::PTransformd & X_0_swg)
 {
+  Eigen::internal::set_is_malloc_allowed(false);
   const int N_slack = static_cast<int>(N_.rows());
   const int N_variables = 2 * N_steps + N_slack;
 
@@ -77,10 +85,10 @@ void feasibility_solver::build_steps_feasibility_matrix(Eigen::MatrixXd & A_f,
   const Eigen::Vector2d & P_swingFoot_0 = X_0_swg.translation().segment(0, 2);
 
   // DCM must remain inside the feasibility region
-  A_f.resize(N_.rows(), N_variables);
-  b_f.resize(A_f.rows());
-  A_f.setZero();
-  b_f.setZero();
+  eigen_assert(A_out.rows() == N_.rows() && A_out.cols() == N_variables);
+  eigen_assert(b_out.rows() == A_out.rows());
+  A_out.setZero();
+  b_out.setZero();
   // A_f * x + b = Of
   // A_f * x + b + slack >= N * P_u
 
@@ -99,9 +107,9 @@ void feasibility_solver::build_steps_feasibility_matrix(Eigen::MatrixXd & A_f,
 
     if(doubleSupport_ && j < N_ds_)
     {
-      b_f += (offsetCstrZMPDblInit_ + N_ * (P_supportFoot_0 + P_swingFoot_0) * 0.5) * (mu_0j - mu_0jp1);
+      b_out += (offsetCstrZMPDblInit_ + N_ * (P_supportFoot_0 + P_swingFoot_0) * 0.5) * (mu_0j - mu_0jp1);
     }
-    else { b_f += (offsetCstrZMP_ + N_ * P_supportFoot_0) * (mu_0j - mu_0jp1); }
+    else { b_out += (offsetCstrZMP_ + N_ * P_supportFoot_0) * (mu_0j - mu_0jp1); }
   }
 
   // Remainings
@@ -116,15 +124,16 @@ void feasibility_solver::build_steps_feasibility_matrix(Eigen::MatrixXd & A_f,
       double mu_ijp1 = 0;
       if(!(i == N_steps && j == N_tdsLast - 1)) { mu_ijp1 = xTimings_[i * (N_ds_ + 1) + j + 1]; }
 
-      A_f.block(0, step_indx_im1, 4, 2) += N_ * (mu_ij - mu_ijp1) * alpha;
-      if(i > 1) { A_f.block(0, step_indx_im2, 4, 2) += N_ * (mu_ij - mu_ijp1) * (1 - alpha); }
-      else { b_f += N_ * P_supportFoot_0 * (mu_ij - mu_ijp1) * (1 - alpha); }
-      b_f += offsetCstrZMP_ * (mu_ij - mu_ijp1);
+      A_out.block(0, step_indx_im1, 4, 2) += N_ * (mu_ij - mu_ijp1) * alpha;
+      if(i > 1) { A_out.block(0, step_indx_im2, 4, 2) += N_ * (mu_ij - mu_ijp1) * (1 - alpha); }
+      else { b_out += N_ * P_supportFoot_0 * (mu_ij - mu_ijp1) * (1 - alpha); }
+      b_out += offsetCstrZMP_ * (mu_ij - mu_ijp1);
     }
   }
-  b_f *= kappa_;
-  b_f -= N_ * gamma_ * exp(-eta_ * t_);
-  A_f *= kappa_;
+  b_out *= kappa_;
+  b_out -= N_ * gamma_ * exp(-eta_ * t_);
+  A_out *= kappa_;
+  Eigen::internal::set_is_malloc_allowed(true);
 }
 
 bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSteps)
@@ -176,8 +185,8 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
 
   // DCM must remain inside the feasibility region
   Eigen::MatrixXd A_f = Eigen::MatrixXd::Zero(4, N_variables);
-  Eigen::MatrixXd A_f_gen;
-  Eigen::VectorXd b_f;
+  Eigen::MatrixXd A_f_gen = Eigen::MatrixXd::Zero(N_.rows(), 2 * N_steps + N_.rows());
+  Eigen::VectorXd b_f = Eigen::VectorXd::Zero(A_f_gen.rows());
 
   build_steps_feasibility_matrix(A_f_gen, b_f, X_0_SupportFoot_, X_0_SwingFoot_);
   if(n_steps < N_steps)
@@ -189,34 +198,28 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
   }
 
   // Kinematics Constraints
-  Eigen::MatrixXd A_kin = Eigen::MatrixXd::Zero(0, N_variables);
-  Eigen::VectorXd b_kin = Eigen::VectorXd::Zero(0);
-  kinematics_contraints(A_kin, b_kin, refSteps_);
+  Eigen::MatrixXd A_kin = Eigen::MatrixXd::Zero(4 * n_steps, N_variables);
+  Eigen::VectorXd b_kin = Eigen::VectorXd::Zero(A_kin.rows());
+  kinematics_constraints(A_kin, b_kin, refSteps_);
 
-  Eigen::MatrixXd A_ineq = Eigen::MatrixXd::Zero(A_kin.rows() + A_f.rows(), N_variables);
-  Eigen::VectorXd b_ineq = Eigen::VectorXd::Zero(A_ineq.rows());
-  A_ineq << -A_f * exp(eta_ * t_), A_kin;
-  b_ineq << (b_f * exp(eta_ * t_) - (N_ * dcm_)), b_kin;
+  if(A_ineq_buffer_.size() < (A_kin.rows() + A_f.rows()) * N_variables)
+  {
+    A_ineq_buffer_.resize((A_kin.rows() + A_f.rows()) * N_variables);
+  }
+  auto A_ineq_ = Eigen::Map<Eigen::MatrixXd>(A_ineq_buffer_.data(), A_kin.rows() + A_f.rows(), N_variables);
+  if(b_ineq_buffer_.size() < A_ineq_.rows()) { b_ineq_buffer_.resize(A_ineq_.rows()); }
+  auto b_ineq_ = Eigen::Map<Eigen::VectorXd>(b_ineq_buffer_.data(), A_ineq_.rows());
+  A_ineq_ << -A_f * exp(eta_ * t_), A_kin;
+  b_ineq_ << (b_f * exp(eta_ * t_) - (N_ * dcm_)), b_kin;
 
   // Slack Variables
-  A_ineq.block(0, 2 * n_steps, N_slack, N_slack) = Eigen::Matrix4d::Identity();
+  A_ineq_.block(0, 2 * n_steps, N_slack, N_slack) = Eigen::Matrix4d::Identity();
 
-  const int NineqCstr = static_cast<int>(A_ineq.rows());
+  const int NineqCstr = static_cast<int>(A_ineq_.rows());
 
-  Eigen::MatrixXd A_eq = Eigen::MatrixXd::Zero(0, N_variables);
-  Eigen::VectorXd b_eq = Eigen::VectorXd::Zero(A_eq.rows());
-  const int NeqCstr = static_cast<int>(A_eq.rows());
+  const int NeqCstr = 0;
 
   // Cost function
-
-  Eigen::MatrixXd M_steps = Eigen::MatrixXd::Zero(2 * n_steps, N_variables);
-  M_steps.block(0, 0, 2 * n_steps, 2 * n_steps) = Eigen::MatrixXd::Identity(2 * n_steps, 2 * n_steps);
-  Eigen::VectorXd b_steps = Eigen::VectorXd::Zero(M_steps.rows());
-  for(int i = 0; i < n_steps; i++) { b_steps.segment(2 * i, 2) = refSteps[i].translation().segment(0, 2); }
-
-  Eigen::MatrixXd M_slack = Eigen::MatrixXd::Zero(N_slack, N_variables);
-  M_slack.block(0, 2 * n_steps, N_slack, N_slack) = Eigen::MatrixXd::Identity(N_slack, N_slack);
-  const Eigen::VectorXd b_slack = Eigen::VectorXd::Zero(M_slack.rows());
 
   Eigen::VectorXd x_init = Eigen::VectorXd::Zero(N_variables);
   // x_init.segment(0,2*n_steps) = b_steps;
@@ -237,17 +240,25 @@ bool feasibility_solver::solve_steps(const std::vector<sva::PTransformd> & refSt
       std::cout << "offset delta " << feasibilityOffsetInit(i) - dcm_pose(i) << std::endl;
     }
   }
-  // std::cout << "A_ineq" << std::endl << A_ineq.block(0,0,4,N_variables) << std::endl;
-  // std::cout << "b_ineq" << std::endl << b_ineq << std::endl;
-  // std::cout << "N(i) " << std::endl << N_.row(i) << std::endl;
 
-  Eigen::MatrixXd Q_cost = betaSteps * (M_steps.transpose() * M_steps) + 1e7 * (M_slack.transpose() * M_slack);
-  // Q_cost += 1e6 * (- A_f *  exp(eta_ * t_)).transpose() * (- A_f *  exp(eta_ * t_));
-  Eigen::VectorXd c_cost = betaSteps * (-M_steps.transpose() * b_steps);
-  // c_cost += 1e6 * (A_f *  exp(eta_ * t_)).transpose() * (b_f * exp(eta_ * t_) - (N_ * dcm_) );
+  if(Q_cost_buffer_.size() < N_variables * N_variables)
+  {
+    Q_cost_buffer_.resize(N_variables * N_variables);
+    c_cost_buffer_.resize(N_variables);
+  }
+  auto Q_cost_ = Eigen::Map<Eigen::MatrixXd>(Q_cost_buffer_.data(), N_variables, N_variables);
+  auto c_cost_ = Eigen::Map<Eigen::VectorXd>(c_cost_buffer_.data(), N_variables);
+  Q_cost_.setZero();
+  Q_cost_.topLeftCorner(2 * n_steps, 2 * n_steps).diagonal().setConstant(betaSteps);
+  Q_cost_.bottomRightCorner(N_slack, N_slack).diagonal().setConstant(1e7);
+  for(Eigen::Index i = 0; i < n_steps; i++)
+  {
+    c_cost_.segment(2 * i, 2) = -betaSteps * refSteps[i].translation().segment(0, 2);
+  }
+  c_cost_.tail(N_slack).setZero();
 
   qp_solver_.problem(N_variables, NeqCstr, NineqCstr);
-  bool QPsuccess = qp_solver_.solve(Q_cost, c_cost, A_eq, b_eq, A_ineq, b_ineq);
+  bool QPsuccess = qp_solver_.solve(Q_cost_, c_cost_, Eigen::MatrixXd{}, Eigen::VectorXd{}, A_ineq_, b_ineq_);
 
   // if(!QPsuccess)
   // {

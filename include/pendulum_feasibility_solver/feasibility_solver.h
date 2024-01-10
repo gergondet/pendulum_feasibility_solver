@@ -4,9 +4,6 @@
 
 #include <eigen-quadprog/QuadProg.h>
 
-#include <cassert>
-#include <iostream>
-
 class feasibility_solver
 {
 public:
@@ -85,8 +82,8 @@ private:
    * @param X_0_supp
    * @param X_0_swg
    */
-  void build_time_feasibility_matrix(Eigen::MatrixXd & A_out,
-                                     Eigen::VectorXd & b_out,
+  void build_time_feasibility_matrix(Eigen::Ref<Eigen::MatrixXd> A_out,
+                                     Eigen::Ref<Eigen::VectorXd> b_out,
                                      const sva::PTransformd & X_0_supp,
                                      const sva::PTransformd & X_0_swg);
 
@@ -99,16 +96,18 @@ private:
    * @param X_0_supp
    * @param X_0_swg
    */
-  void build_steps_feasibility_matrix(Eigen::MatrixXd & A_out,
-                                      Eigen::VectorXd & b_out,
+  void build_steps_feasibility_matrix(Eigen::Ref<Eigen::MatrixXd> A_out,
+                                      Eigen::Ref<Eigen::VectorXd> b_out,
                                       const sva::PTransformd & X_0_supp,
                                       const sva::PTransformd & X_0_swg);
 
-  void timings_constraints(Eigen::MatrixXd & A_out, Eigen::VectorXd & b_out, const int NStepsTimings);
+  void timings_constraints(Eigen::Ref<Eigen::MatrixXd> A_out,
+                           Eigen::Ref<Eigen::VectorXd> b_out,
+                           const int NStepsTimings);
 
-  void kinematics_contraints(Eigen::MatrixXd & A_out,
-                             Eigen::VectorXd & b_out,
-                             const std::vector<sva::PTransformd> & refSteps);
+  void kinematics_constraints(Eigen::Ref<Eigen::MatrixXd> A_out,
+                              Eigen::Ref<Eigen::VectorXd> b_out,
+                              const std::vector<sva::PTransformd> & refSteps);
 
   /**
    * @brief Compute quadrtic cstr such as
@@ -175,5 +174,16 @@ private:
   double kappa_ = 1;
   Eigen::Vector2d gamma_ = Eigen::Vector2d::Zero();
 
+  /** QP solver ands associated matrices/vectors */
   Eigen::QuadProgDense qp_solver_;
+  Eigen::VectorXd Q_cost_buffer_;
+  Eigen::VectorXd c_cost_buffer_;
+  Eigen::VectorXd A_eq_buffer_;
+  Eigen::VectorXd b_eq_buffer_;
+  Eigen::VectorXd A_ineq_buffer_;
+  Eigen::VectorXd b_ineq_buffer_;
+
+  /** Cache for time feasibility matrix */
+  Eigen::MatrixXd A_f_;
+  Eigen::VectorXd b_f_;
 };
